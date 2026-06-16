@@ -1,0 +1,386 @@
+# 統一設備管理平台 — 一個月實作計畫（逐天版）
+
+> **期間**：2026/06/15 (一) — 2026/07/14 (一)
+> **參考來源**：[考題全文](file:///c:/Projects/CC/GoProjectTest/.docs/Unified%20Device%20Management%20Platform..md)
+> **核心參考專案**：USCII (`c:/Projects/CC/USCII/golang/`)
+
+---
+
+## 全局注意事項（每一天都適用）
+
+- **不要用全域變數**：所有 DB client 透過 DI 注入給 Service / Repository
+- **統一回傳格式**：所有 API 使用 `pkg/response/` 的 `OK()` / `BadRequest()` / `NotFound()`
+- **錯誤包裝**：所有 error 用 `fmt.Errorf("context: %w", err)` 向上傳遞
+- **設定集中化**：連線字串、port、密碼全部從 `.env` 讀取，不寫死
+
+---
+
+## Week 1：基礎架構 + PostgreSQL CRUD (佔分 30%)
+
+### Day 1 — 6/15 (一)：專案骨架與基礎設施
+
+**目標**：`docker compose up` 能把三個 DB 全部跑起來
+
+- [ ] 建立專案目錄結構：
+  ```
+  cmd/api/main.go
+  internal/config/
+  internal/handler/
+  internal/service/
+  internal/repository/
+  internal/middleware/
+  internal/scylla/
+  internal/keydb/
+  internal/model/
+  pkg/response/
+  migrations/
+  .docker/
+  ```
+- [ ] 寫 `internal/config/config.go`（參考 USCII config.go）
+  - `Config struct`：PostgreSQL DSN、ScyllaDB Hosts/Keyspace、KeyDB Addr、API Port
+  - `Load()` 函式，用 `godotenv` 讀 `.env`
+- [ ] 寫 `.env.dev`（開發用環境變數）
+- [ ] 寫 `pkg/response/response.go`：統一 JSON 回傳格式
+  ```json
+  {"code": 200, "message": "ok", "data": {...}, "pagination": {...}}
+  ```
+- [ ] 寫 `internal/middleware/trace.go`（Request ID，參考 USCII trace.go）
+
+### Day 2 — 6/16 (二)：Docker Compose + PostgreSQL Schema
+
+**目標**：三個 DB 容器 + PostgreSQL Schema 建好
+
+- [ ] 寫 `.docker/docker-compose.dev.yml`（參考 USCII docker-compose.dev.yml）
+  - `postgres:17-alpine` + healthcheck
+  - `scylladb/scylla:latest` + `--smp 1 --memory 512M` + healthcheck
+  - `scylladb-init`（建立 keyspace）
+  - `eqalpha/keydb:latest` + healthcheck
+- [ ] 寫 PostgreSQL Migration 檔案（`migrations/`）：
+  - `001_create_users.up.sql` — users 表（UUID PK、username、email、password_hash、role、is_active）
+  - `002_create_devices.up.sql` — devices 表（UUID PK、device_code UNIQUE、name、device_type、location、metadata JSONB、owner_id FK、status）
+  - `003_create_alert_rules.up.sql` — alert_rules 表（UUID PK、device_id FK ON DELETE CASCADE、metric_name、operator、threshold、severity、is_enabled）
+  - `004_add_indexes.up.sql` — `pg_trgm` GIN 索引（`device_code`、`name`）、device_type / status / location 索引
+- [ ] 驗證：`docker compose up` → 連進 psql 確認三張表都存在
+
+### Day 3 — 6/17 (三)：Users CRUD + GORM 基礎
+
+**目標**：User 的完整 CRUD API 可用 Postman 測試
+
+- [ ] 寫 `internal/model/user.go`（GORM model，對應 users 表）
+- [ ] 寫 `internal/repository/user_repo.go`（interface + 實作）
+  - `Create()`、`FindByID()`、`Update()`、`SoftDelete()`（將 is_active 設為 false）
+  - `FindByID` 需回傳該使用者擁有的設備數量（`SELECT count(*) FROM devices WHERE owner_id = ?`）
+- [ ] 寫 `internal/service/user_service.go`
+  - 密碼用 `bcrypt` 雜湊後存入
+- [ ] 寫 `internal/handler/user_handler.go`
+  - `POST /api/v1/users`
+  - `GET /api/v1/users/:id`（含設備數量）
+  - `PUT /api/v1/users/:id`
+  - `DELETE /api/v1/users/:id`（軟刪除）
+- [ ] 在 `cmd/api/main.go` 組裝 DI 鏈：`config → gorm.DB → UserRepo → UserService → UserHandler → gin.Router`
+
+### Day 4 — 6/18 (四)：Devices CRUD + 分頁 + 搜尋
+
+**目標**：Device 完整 CRUD，含 Cursor-based 分頁和 pg_trgm 模糊搜尋
+
+- [ ] 寫 `internal/model/device.go`
+- [ ] 寫 `internal/repository/device_repo.go`
+  - `Create()`、`FindByID()`、`Update()`、`Delete()`（真刪除，CASCADE 會自動刪 alert_rules）
+  - **`List()` — 實作 Cursor-based Pagination**：
+    - 用 `WHERE (created_at, id) < (?, ?)` 取代 OFFSET
+    - 支援 `device_type`、`status`、`location` 篩選
+    - 支援 `?search=xxx` — 用 `pg_trgm` 的 `ILIKE '%xxx%'` 搜尋 device_code 和 name
+    - 回傳 `next_cursor` 供前端下一頁使用
+- [ ] 寫 `internal/service/device_service.go`
+- [ ] 寫 `internal/handler/device_handler.go`
+  - `POST /api/v1/devices`
+  - `GET /api/v1/devices`（分頁 + 篩選 + 搜尋）
+  - `GET /api/v1/devices/:id`（Week 2 會擴充加入最新遙測）
+  - `PUT /api/v1/devices/:id`
+  - `DELETE /api/v1/devices/:id`
+
+### Day 5 — 6/19 (五)：Alert Rules CRUD + updated_at 自動更新
+
+**目標**：告警規則 CRUD 完成，PostgreSQL 部分全部收工
+
+- [ ] 寫 `internal/model/alert_rule.go`
+- [ ] 寫 `internal/repository/alert_rule_repo.go`
+  - `Create()`、`FindByDeviceID()`、`Update()`、`Delete()`
+- [ ] 寫 `internal/service/alert_rule_service.go`
+  - 驗證 `operator` 只能是 `gt, lt, gte, lte, eq`
+  - 驗證 `severity` 只能是 `info, warning, critical`
+- [ ] 寫 `internal/handler/alert_rule_handler.go`
+  - `POST /api/v1/devices/:id/alert-rules`
+  - `GET /api/v1/devices/:id/alert-rules`
+  - `PUT /api/v1/alert-rules/:id`
+  - `DELETE /api/v1/alert-rules/:id`
+- [ ] 實作 `updated_at` 自動更新：
+  - 方案 A：PostgreSQL Trigger
+  - 方案 B：GORM 的 `BeforeUpdate` hook（更簡單，推薦）
+- [ ] **里程碑驗收**：用 Postman 完整測試 users、devices、alert_rules 三組 CRUD
+
+---
+
+## Week 2：ScyllaDB 時序數據 (佔分 30%)
+
+### Day 6 — 6/22 (一)：ScyllaDB 連線 + Schema
+
+**目標**：ScyllaDB 連線成功，兩張表建好
+
+- [ ] 寫 `internal/scylla/client.go`（參考 USCII scylla/client.go）
+  - `NewClient()` + `Close()` + `EnsureSchema()`
+- [ ] `EnsureSchema()` 建立兩張表：
+  - `telemetry` — Partition Key: `(device_id, date)`，Clustering Key: `(recorded_at DESC, metric_name ASC)`，TTL 90 天
+  - `alert_events` — Partition Key: `(device_id, month)`，Clustering Key: `(triggered_at DESC, rule_id ASC)`
+
+> **重要**：Partition Key 是 `(device_id, date)` 而不是單純的 `device_id`！這是為了避免單一設備的資料量過大導致 hot partition。每天一個分區，查詢跨天時需要拆分多個分區查詢再合併。
+
+- [ ] 在 `main.go` 加入 ScyllaDB client 的初始化和 DI 注入
+
+### Day 7 — 6/23 (二)：遙測數據寫入 API（批次 + 告警觸發）
+
+**目標**：`POST /telemetry` 能批次寫入，並自動觸發告警
+
+- [ ] 寫 `internal/scylla/telemetry_repo.go`
+  - `BatchInsert(deviceID, []TelemetryPoint)` — 使用 CQL Batch INSERT，上限 100 筆
+  - 使用 Prepared Statement
+- [ ] 寫 `internal/service/telemetry_service.go`
+  - 接收批次遙測資料
+  - **核心邏輯：寫入遙測後，自動比對 `alert_rules`**
+    1. 從 PostgreSQL 查出該 device 的所有 enabled alert_rules
+    2. 逐筆遙測數據比對 `metric_name` + `operator` + `threshold`
+    3. 若觸發 → 寫入 ScyllaDB `alert_events` 表
+- [ ] 寫 `internal/handler/telemetry_handler.go`
+  - `POST /api/v1/devices/:id/telemetry` — 批次寫入
+
+### Day 8 — 6/24 (三)：遙測數據查詢（跨日分區）
+
+**目標**：查詢 API 能正確處理跨天的時間範圍
+
+- [ ] 在 `telemetry_repo.go` 加入：
+  - `Query(deviceID, start, end, metricName)` — **跨日分區查詢**：
+    1. 根據 `start` 和 `end` 計算涉及哪些 `date` 分區
+    2. 對每個分區發出獨立查詢
+    3. 合併結果，按 `recorded_at DESC` 排序
+  - `QueryLatest(deviceID)` — 取最新一筆各 metric 的數據（只查今天和昨天兩個分區）
+  - `DeleteByRange(deviceID, start, end)` — 範圍刪除
+- [ ] 在 handler 加入：
+  - `GET /api/v1/devices/:id/telemetry`（必須帶 `start` / `end` 參數）
+  - `GET /api/v1/devices/:id/telemetry/latest`
+  - `DELETE /api/v1/devices/:id/telemetry`
+
+### Day 9 — 6/25 (四)：告警事件 CRUD + 擴充設備詳情
+
+**目標**：告警事件完整 CRUD，設備詳情含最新遙測
+
+- [ ] 在 `internal/scylla/alert_event_repo.go` 加入：
+  - `Insert(alertEvent)` — 寫入告警事件
+  - `QueryByDevice(deviceID, month, severity)` — 查詢告警事件，支援 severity 篩選
+  - `Acknowledge(deviceID, month, triggeredAt, ruleID)` — 確認告警
+- [ ] 在 handler 加入：
+  - `POST /api/v1/devices/:id/alert-events`（也可由遙測寫入自動觸發）
+  - `GET /api/v1/devices/:id/alert-events`
+  - `PUT /api/v1/alert-events/:device_id/:month/:triggered_at/:rule_id/ack`
+- [ ] **擴充 `GET /api/v1/devices/:id`**：回傳設備詳情時，從 ScyllaDB 查最新遙測一併回傳
+- [ ] **里程碑驗收**：用 Postman 測試完整的遙測寫入 → 告警自動觸發 → 查詢告警事件流程
+
+### Day 10 — 6/26 (五)：Buffer / 補進度
+
+- [ ] 回顧 Week 1-2 所有 API，補齊遺漏的 edge case
+- [ ] 確保所有 error 回傳都有正確的 HTTP status code 和統一格式
+- [ ] 如果提前完成，開始預習 KeyDB 的 go-redis/v9 API
+
+---
+
+## Week 3：KeyDB 快取與即時狀態 (佔分 25%)
+
+### Day 11 — 6/29 (一)：KeyDB 連線 + Cache-Aside + 在線狀態
+
+**目標**：設備詳情快取 + 在線狀態判斷可運作
+
+- [ ] 寫 `internal/keydb/client.go`（參考 USCII keydb/dial.go）
+  - `NewClient()` 建立連線（TLS 支援）
+- [ ] 實作 **Cache-Aside**（`device:{device_id}`，TTL 5 min）：
+  - 修改 `GET /api/v1/devices/:id`：先查 KeyDB → miss 時查 PG → 寫回 KeyDB
+  - 修改 `PUT /api/v1/devices/:id`：更新 PG 後 invalidate 對應 cache key
+  - Cache 穿透防護：PG 找不到時，存空值 + TTL 30 秒
+- [ ] 實作 **在線狀態**（`device:online:{device_id}`，TTL 3 min）：
+  - 修改 `POST /telemetry`：每次遙測寫入時 `SET + EXPIRE`
+  - `GET /api/v1/devices/:id/status` — 讀取在線狀態
+
+### Day 12 — 6/30 (二)：Write-Through + 告警計數 + 列表快取
+
+**目標**：三種額外快取策略實作完成
+
+- [ ] 實作 **Write-Through**（`telemetry:latest:{device_id}`，TTL 30 sec）：
+  - 修改 `POST /telemetry`：寫入 ScyllaDB 後，同步更新 KeyDB 最新遙測快取
+  - `GET /devices/:id/telemetry/latest` 先查 KeyDB，miss 才查 ScyllaDB
+- [ ] 實作 **告警計數**（`alert:count:{device_id}:{severity}`，TTL 10 min）：
+  - 告警事件寫入時，對對應 key 執行 `INCR`
+  - `GET /devices/:id/status` 回傳時包含各 severity 的告警計數
+- [ ] 實作 **設備列表快取**（`devices:list:{hash_of_query_params}`，TTL 2 min）：
+  - `GET /devices` 查詢結果寫入 KeyDB
+  - 任何設備的 CREATE / UPDATE / DELETE 操作後，刪除所有 `devices:list:*` key
+
+### Day 13 — 7/1 (三)：Dashboard API + Pipeline + Stampede 防護
+
+**目標**：Dashboard 一次從 KeyDB 取回所有摘要 + 防止快取擊穿
+
+- [ ] 實作 `GET /api/v1/dashboard/overview`：
+  - 使用 **KeyDB Pipeline** 一次取回：
+    - 設備總數（可從 PG 定時同步到 KeyDB）
+    - 在線設備數（掃描 `device:online:*` 的 key 數量，或維護一個計數器）
+    - 各 severity 告警總數
+  - 全部從 KeyDB 讀取，不打 PG / ScyllaDB
+- [ ] 實作 `POST /api/v1/cache/invalidate`：
+  - 接受 key pattern，清除匹配的 cache（管理用途）
+- [ ] 實作 **Cache Stampede 防護**：
+  - 使用 `golang.org/x/sync/singleflight` 包
+  - 當多個 request 同時 cache miss 時，只有一個 goroutine 去查 DB，其他等結果
+
+### Day 14 — 7/2 (四)：跨 DB 刪除一致性 + 降級處理
+
+**目標**：設備刪除時三個 DB 協調一致 + 某 DB 掛掉不全崩
+
+- [ ] 實作**跨 DB 刪除一致性**（Saga Pattern）：
+  - 設備刪除時依序執行：
+    1. PostgreSQL：刪除設備 + alert_rules（CASCADE）
+    2. KeyDB：清除 `device:{id}`、`telemetry:latest:{id}`、`device:online:{id}`、`alert:count:{id}:*`、invalidate list cache
+    3. ScyllaDB：**不刪除**遙測歷史資料（保留供稽核）
+  - 若任一步驟失敗：記錄 log + 回傳部分成功的狀態碼
+- [ ] 實作**降級處理**：
+  - KeyDB 掛掉 → bypass cache，直接查 PG / ScyllaDB（catch connection error → fallback）
+  - ScyllaDB 掛掉 → 遙測寫入返回 `503 Service Unavailable`，設備 CRUD 仍正常
+  - PostgreSQL 掛掉 → 所有寫入返回 `503`，讀取嘗試從 KeyDB 快取提供
+- [ ] 實作 `GET /health`：
+  ```json
+  {
+    "status": "degraded",
+    "postgres": "healthy",
+    "scylladb": "unhealthy",
+    "keydb": "healthy"
+  }
+  ```
+
+### Day 15 — 7/3 (五)：Buffer / 補進度
+
+- [ ] 回顧 Week 3 所有快取邏輯，確保 TTL、invalidation、降級都正確
+- [ ] 用 Postman 完整測試所有 API endpoint
+- [ ] **里程碑驗收**：所有功能開發完成，進入收尾階段
+
+---
+
+## Week 4：測試、品質、文件 (佔分 15%)
+
+### Day 16 — 7/6 (一)：單元測試 — Service 層
+
+**目標**：核心業務邏輯有 Mock 測試覆蓋
+
+- [ ] 定義 Repository Interface（如果之前沒做）
+- [ ] 為以下核心邏輯寫單元測試（使用 Mock Repository）：
+  - **告警規則比對邏輯**：不同 operator (gt/lt/gte/lte/eq) × threshold 的排列組合
+  - **快取策略邏輯**：cache hit / miss / invalidation 的行為驗證
+  - **Cursor-based 分頁邏輯**：cursor 解析、邊界條件
+
+### Day 17 — 7/7 (二)：單元測試 — 補充 + 整合測試
+
+- [ ] 補充 Service 層測試（降級邏輯、跨 DB 刪除的補償機制）
+- [ ] 寫整合測試框架：
+  - 使用 Docker Compose 啟動三個 DB
+  - 跑完整的 CRUD flow：建立使用者 → 建立設備 → 設定告警規則 → 寫入遙測 → 觸發告警 → 查詢告警
+
+### Day 18 — 7/8 (三)：壓力測試腳本 + 報告
+
+**目標**：產出可量化的效能報告
+
+- [ ] 寫壓力測試腳本（Go test / k6 / 或自寫腳本）：
+  1. 批量建立 1,000 個設備
+  2. 對每個設備寫入 1,000 筆遙測數據
+  3. 混合讀寫負載（70% 讀 / 30% 寫）
+- [ ] 執行壓力測試，記錄結果：
+  - QPS（每秒請求數）
+  - P50 / P95 / P99 延遲
+  - 測試環境規格（CPU、RAM、Docker 配置）
+- [ ] 撰寫壓力測試報告（含瓶頸分析）
+
+### Day 19 — 7/9 (四)：golangci-lint + Graceful Shutdown + 結構化日誌
+
+**目標**：程式碼品質達到生產標準
+
+- [ ] 安裝並設定 `golangci-lint`，消滅所有 warning
+- [ ] 在 `main.go` 實作 **Graceful Shutdown**：
+  - 捕捉 `SIGTERM` / `SIGINT`
+  - 依序關閉：HTTP Server → KeyDB → ScyllaDB → PostgreSQL
+  - 每個關閉步驟印出 log
+- [ ] 將所有 `fmt.Println` / `log.Println` 替換為**結構化日誌**：
+  - 使用 `log/slog`（Go 標準庫）或 `zerolog`
+  - 所有 log 都帶 request_id（從 middleware 注入的 trace ID）
+- [ ] 寫 `Makefile`：
+  ```makefile
+  build:    go build -o bin/api ./cmd/api/
+  test:     go test ./... -v -race -cover
+  lint:     golangci-lint run
+  run:      go run ./cmd/api/
+  compose:  docker compose --env-file .env.dev -f .docker/docker-compose.dev.yml up -d
+  ```
+
+### Day 20-21 — 7/10~11 (五~六)：Buffer / 補進度
+
+- [ ] 消化前面累積的技術債
+- [ ] 修復壓力測試中發現的效能問題
+- [ ] 確保所有 API 的 error response 格式統一
+
+### Day 22-24 — 7/12~14 (一~三前)：README + API 文件 + 簡報
+
+- [ ] 撰寫 `README.md`：
+  - 架構圖（可用 Mermaid）
+  - 環境需求
+  - 啟動步驟：`docker compose up` → `go run ./cmd/api/`
+  - API 端點總覽
+  - 測試執行方式
+- [ ] 撰寫 API 文件：
+  - Swagger / OpenAPI（可用 `swaggo/swag` 自動產生）
+  - 或 Postman Collection（手動匯出）
+- [ ] 確認交付物清單：
+
+| 交付物 | 狀態 |
+| :--- | :--- |
+| 完整 Go 原始碼（可 `go build` 成功） | [ ] |
+| `README.md`（架構說明 + 啟動步驟） | [ ] |
+| `docker-compose.yml` | [ ] |
+| SQL Migration 檔案（`migrations/`） | [ ] |
+| CQL Schema（`EnsureSchema` 或獨立 `.cql` 檔） | [ ] |
+| API 文件（Swagger 或 Postman Collection） | [ ] |
+| 壓力測試報告 | [ ] |
+| `Makefile` | [ ] |
+
+- [ ] 準備簡報講稿
+- [ ] 7/14 報告專題
+
+---
+
+## 各週驗收里程碑
+
+| 週 | 驗收標準 |
+| :--- | :--- |
+| **Week 1 結束** | Postman 能完整測試 users / devices / alert_rules 三組 CRUD，Cursor-based 分頁和 pg_trgm 搜尋正常運作 |
+| **Week 2 結束** | 遙測批次寫入 → 自動觸發告警 → 跨日查詢遙測 → 查詢告警事件，完整鏈路可跑通 |
+| **Week 3 結束** | 五種 KeyDB 快取策略全部可驗證、Dashboard API 用 Pipeline 一次取值、Health Check 正確反映各 DB 狀態、某 DB 掛掉時 API 不全崩 |
+| **Week 4 結束** | 測試覆蓋核心邏輯、壓力測試報告產出、Lint 零 warning、README 完整、可一鍵啟動整個系統 |
+
+---
+
+## USCII 參考檔案速查表
+
+| 你要做的功能 | 參考 USCII 的檔案 |
+| :--- | :--- |
+| Config 集中管理 | `internal/config/config.go` |
+| 通用 CRUD 路由 | `internal/handler/generic_crud.go` |
+| GORM Repository | `internal/repository/business_repo.go` |
+| ScyllaDB 連線 | `internal/scylla/client.go` |
+| ScyllaDB CQL 操作 | `internal/scylla/email_repo.go` |
+| KeyDB 連線 | `internal/keydb/dial.go` |
+| KeyDB Stream/Queue | `internal/keydb/producer.go` |
+| 統一回傳格式 | `pkg/response/` 目錄 |
+| Trace ID Middleware | `internal/middleware/trace.go` |
+| Docker Compose | `.docker/docker-compose.dev.yml` |
