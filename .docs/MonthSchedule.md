@@ -123,7 +123,7 @@
 
 ## Week 2：ScyllaDB 時序數據 (佔分 30%)
 
-### Day 6 — 6/20 (六)：ScyllaDB 連線 + Schema
+### Day 6 — 6/21 (日)：ScyllaDB 連線 + Schema
 
 **目標**：ScyllaDB 連線成功，兩張表建好
 
@@ -137,7 +137,7 @@
 
 - [ ] 在 `main.go` 加入 ScyllaDB client 的初始化和 DI 注入
 
-### Day 7 — 6/21 (日)：遙測數據寫入 API（批次 + 告警觸發）
+### Day 7 — 6/22 (一)：遙測數據寫入 API（批次 + 告警觸發）
 
 **目標**：`POST /telemetry` 能批次寫入，並自動觸發告警
 
@@ -153,7 +153,7 @@
 - [ ] 寫 `internal/handler/telemetry_handler.go`
   - `POST /api/v1/devices/:id/telemetry` — 批次寫入
 
-### Day 8 — 6/22 (一)：遙測數據查詢（跨日分區 + 刪除標記過濾）
+### Day 8 — 6/23 (二)：遙測數據查詢（跨日分區 + 刪除標記過濾）
 
 **目標**：查詢 API 能正確處理跨天的時間範圍，並過濾已刪除設備的資料
 
@@ -172,7 +172,7 @@
   - `GET /api/v1/devices/:id/telemetry/latest`
   - `DELETE /api/v1/devices/:id/telemetry`
 
-### Day 9 — 6/23 (二)：告警事件 CRUD + 擴充設備詳情
+### Day 9 — 6/24 (三)：告警事件 CRUD + 擴充設備詳情
 
 **目標**：告警事件完整 CRUD，設備詳情含最新遙測
 
@@ -187,7 +187,7 @@
 - [ ] **擴充 `GET /api/v1/devices/:id`**：回傳設備詳情時，從 ScyllaDB 查最新遙測一併回傳
 - [ ] **里程碑驗收**：用 Postman 測試完整的遙測寫入 → 告警自動觸發 → 查詢告警事件流程
 
-### Day 10 — 6/24 (三)：Buffer / 補進度
+### Day 10 — 6/25 (四)：Buffer / 補進度
 
 - [ ] 回顧 Week 1-2 所有 API，補齊遺漏的 edge case
 - [ ] 確保所有 error 回傳都有正確的 HTTP status code 和統一格式
@@ -197,7 +197,7 @@
 
 ## Week 3：KeyDB 快取與即時狀態 (佔分 25%)
 
-### Day 11 — 6/25 (四)：KeyDB 連線 (TLS) + Cache-Aside + 在線狀態
+### Day 11 — 6/26 (五)：KeyDB 連線 (TLS) + Cache-Aside + 在線狀態
 
 **目標**：設備詳情快取 + 在線狀態判斷可運作，並完成 TLS 連線設定
 
@@ -215,7 +215,7 @@
   - 修改 `POST /telemetry`：每次遙測寫入時 `SET + EXPIRE`
   - `GET /api/v1/devices/:id/status` — 讀取在線狀態
 
-### Day 12 — 6/26 (五)：Write-Through + 告警計數 (含定時校正) + 列表快取
+### Day 12 — 6/27 (六)：Write-Through + 告警計數 (含定時校正) + 列表快取
 
 **目標**：三種額外快取策略實作完成，包含背景定時校正機制
 
@@ -230,7 +230,7 @@
   - `GET /devices` 查詢結果寫入 KeyDB
   - 任何設備的 CREATE / UPDATE / DELETE 操作後，刪除所有 `devices:list:*` key
 
-### Day 13 — 6/27 (六)：Dashboard API + Pipeline
+### Day 13 — 6/28 (日)：Dashboard API + Pipeline
 
 **目標**：Dashboard 一次從 KeyDB 取回所有摘要
 
@@ -241,7 +241,7 @@
     - 各 severity 告警總數
   - 全部從 KeyDB 讀取，不打 PG / ScyllaDB
 
-### Day 14 — 6/28 (日)：Cache Stampede 防護 + Invalidate API
+### Day 14 — 6/29 (一)：Cache Stampede 防護 + Invalidate API
 
 **目標**：管理端點實作與防止快取擊穿
 
@@ -251,11 +251,13 @@
   - 使用 `golang.org/x/sync/singleflight` 包
   - 當多個 request 同時 cache miss 時，只有一個 goroutine 去查 DB，其他等結果
 
+### Day 15 — 6/30 (二)： buffer 可回顧或趕進度
+
 ---
 
 ## Week 4：跨 DB 一致性、測試、品質與文件 (佔分 15%)
 
-### Day 15 — 6/29 (一)：跨 DB 刪除一致性 (Saga Pattern)
+### Day 16 — 7/1 (三)：跨 DB 刪除一致性 (Saga Pattern)
 
 **目標**：設備刪除時三個 DB 協調一致，並實作軟刪除標記
 
@@ -266,7 +268,7 @@
     3. ScyllaDB：**不刪除**遙測歷史資料（保留供稽核），透過 PG 查詢時附加的 `is_deleted` flag 來處理歷史資料標記
   - 若任一步驟失敗：記錄 log + 回傳部分成功的狀態碼
 
-### Day 16 — 6/30 (二)：降級處理 + Health Check
+### Day 17 — 7/2 (四)：降級處理 + Health Check
 
 **目標**：某 DB 掛掉不全崩，實作健康檢查
 
@@ -284,13 +286,17 @@
   }
   ```
 
-### Day 17 — 7/1 (三)：Buffer / 補進度
+### Day 18 — 7/3 (五)：Buffer / 補進度
 
 - [ ] 回顧 Week 3-4 所有快取與一致性邏輯，確保 TTL、invalidation、降級都正確
 - [ ] 用 Postman 完整測試所有 API endpoint
-- [ ] **里程碑驗收**：所有功能開發完成，進入收尾測試階段
+- [ ] **里程碑驗收**：
+  - 用 Postman 驗證五種 KeyDB 快取策略（Cache-Aside、Write-Through、列表快取、在線狀態、告警計數）各自的 hit / miss / invalidation 行為
+  - 呼叫 `GET /health`，確認三個 DB 的狀態都正確回報
+  - 手動把某個 DB 容器停掉（`docker stop`），確認 API 不全崩、降級邏輯生效後再把容器啟回來
+  - 所有功能開發完成，進入收尾測試階段
 
-### Day 18 — 7/2 (四)：單元測試 — Service 層
+### Day 19 — 7/4 (六)：單元測試 — Service 層
 
 **目標**：核心業務邏輯有 Mock 測試覆蓋
 
@@ -300,14 +306,14 @@
   - **快取策略邏輯**：cache hit / miss / invalidation 的行為驗證
   - **Cursor-based 分頁邏輯**：cursor 解析、邊界條件
 
-### Day 19 — 7/3 (五)：單元測試 — 補充 + 整合測試
+### Day 20 — 7/5 (日)：單元測試 — 補充 + 整合測試
 
 - [ ] 補充 Service 層測試（降級邏輯、跨 DB 刪除的補償機制）
 - [ ] 寫整合測試框架：
   - 使用 Docker Compose 啟動三個 DB
   - 跑完整的 CRUD flow：建立使用者 → 建立設備 → 設定告警規則 → 寫入遙測 → 觸發告警 → 查詢告警
 
-### Day 20 — 7/4 (六)：壓力測試腳本 + 報告
+### Day 21 — 7/6 (一)：壓力測試腳本 + 報告
 
 **目標**：產出可量化的效能報告
 
@@ -321,7 +327,7 @@
   - 測試環境規格（CPU、RAM、Docker 配置）
 - [ ] 撰寫壓力測試報告（含瓶頸分析）
 
-### Day 21 — 7/5 (日)：golangci-lint + Graceful Shutdown + 結構化日誌
+### Day 22 - 7/7 (二)： golangci-lint + Graceful Shutdown + 結構化日誌
 
 **目標**：程式碼品質達到生產標準
 
@@ -342,7 +348,7 @@
   compose:  docker compose --env-file .env.dev -f .docker/docker-compose.dev.yml up -d
   ```
 
-### Day 22~24 — 7/6~7/8：README + API 文件 + 簡報準備
+### Day 23~25 — 7/8~7/10 (三)~(五)：README + API 文件 + 簡報準備
 
 - [ ] 撰寫 `README.md`：
   - 架構圖（可用 Mermaid）
@@ -366,12 +372,55 @@
 
 - [ ] 準備簡報講稿
 
-### Day 25~26 — 7/9~7/13：專案緩衝期與收尾
 
-- [ ] 進行整體專案回顧與最終除錯
-- [ ] 確認所有架構要求均已滿足
+### Day 26~28 — 7/11~7/13 (六)~(一)：全流程彩排 + 收尾
 
-### Day 27 — 7/14 (二)：專題報告
+**目標**：模擬「架構師第一次拿到這個專案」的完整操作體驗，提前抓出任何整合問題
+
+#### 全流程彩排步驟（依序執行，不跳過）
+
+- [ ] **Step 1 — 全新環境啟動**：
+  - 先把所有容器和 volume 清除：`docker compose down -v`
+  - 重新執行：`docker compose up -d`
+  - 確認三個 DB 的 healthcheck 全部變成 healthy（不能有任何 container 是 restarting）
+- [ ] **Step 2 — Migration 驗證**：
+  - 確認 PostgreSQL Migration 有自動執行（或手動跑 `make migrate`）
+  - 連進 psql 確認 `users`、`devices`、`alert_rules` 三張表都存在且 schema 正確
+  - 確認 ScyllaDB keyspace 和兩張 CQL 表（`telemetry`、`alert_events`）都建立成功
+- [ ] **Step 3 — 編譯 + 啟動 API**：
+  - 先執行 `go build ./cmd/api/` 確認編譯無誤（這是 Step 2 的 psql 之後才做的事，psql 不會幫你抓 Go 編譯錯誤）
+  - 執行 `make run`（或 `go run ./cmd/api/`）
+  - 確認 `main.go` 的啟動 log 依序印出（這是 GORM/gocql/go-redis 的連線，不是 psql）：
+    - `PostgreSQL connected`（GORM `db.Ping()` 成功）
+    - `ScyllaDB connected, EnsureSchema done`
+    - `KeyDB connected`
+    - `HTTP Server listening on :8080`
+  - 若任何一行沒出現 → 表示環境變數或連線設定有問題，在這裡修，不要帶著問題進 Step 4
+- [ ] **Step 4 — 呼叫 `GET /health`**：
+  - 三個 DB 狀態全部顯示 `healthy`
+- [ ] **Step 5 — 核心業務流程 Postman 完整跑一遍**：
+  1. 建立使用者（`POST /users`）
+  2. 建立設備（`POST /devices`，帶 owner_id）
+  3. 設定告警規則（`POST /devices/:id/alert-rules`，設 temperature > 50 = warning）
+  4. 寫入遙測批次（`POST /devices/:id/telemetry`，包含 temperature=55）
+  5. 確認告警自動觸發（`GET /devices/:id/alert-events`，應看到一筆 warning）
+  6. 查詢 KeyDB 在線狀態（`GET /devices/:id/status`）
+  7. 查詢 Dashboard（`GET /dashboard/overview`）
+  8. 查詢設備清單（`GET /devices`，驗證 Cursor-based 分頁）
+  9. 搜尋設備（`GET /devices?search=SENSOR`，驗證 pg_trgm）
+  10. 刪除設備（`DELETE /devices/:id`），再確認 KeyDB 相關 key 已清除
+- [ ] **Step 6 — 降級驗證**：
+  - 停掉 KeyDB：`docker stop <keydb_container>`
+  - 確認 `GET /devices/:id` 仍能回傳資料（bypass cache 直查 PG）
+  - 確認 `GET /health` 回報 KeyDB `unhealthy`
+  - 把 KeyDB 重啟：`docker start <keydb_container>`，確認恢復正常
+- [ ] **Step 7 — Graceful Shutdown 驗證**：
+  - 對 API process 發送 `Ctrl+C`
+  - 確認 log 依序印出：HTTP Server 關閉 → KeyDB 關閉 → ScyllaDB 關閉 → PostgreSQL 關閉
+  - 確認程式正常退出（exit code 0）
+- [ ] **Step 8 — 最終除錯**：修復彩排過程中發現的任何問題
+
+### Day 29 — 7/14 (二)：專題報告
 
 - [ ] 7/14 報告專題
 
@@ -392,6 +441,8 @@
 
 | 你要做的功能 | 參考 USCII 的檔案 |
 | :--- | :--- |
+| **main.go DI 組裝順序** | `cmd/api/main.go`（config → DB clients → Repos → Services → Handlers → Router → Server） |
+| **PostgreSQL 連線（GORM）** | `cmd/api/main.go`（`gorm.Open` + `db.Ping` 的初始化寫法） |
 | Config 集中管理 | `internal/config/config.go` |
 | 通用 CRUD 路由 | `internal/handler/generic_crud.go` |
 | GORM Repository | `internal/repository/business_repo.go` |
