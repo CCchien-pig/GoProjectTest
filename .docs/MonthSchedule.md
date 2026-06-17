@@ -22,6 +22,7 @@
 **目標**：`docker compose up` 能把三個 DB 全部跑起來
 
 - [ ] 建立專案目錄結構：
+
   ```
   cmd/api/main.go
   internal/config/
@@ -36,14 +37,17 @@
   migrations/
   .docker/
   ```
+
 - [ ] 寫 `internal/config/config.go`（參考 USCII config.go）
   - `Config struct`：PostgreSQL DSN、ScyllaDB Hosts/Keyspace、KeyDB Addr、API Port
   - `Load()` 函式，用 `godotenv` 讀 `.env`
 - [ ] 寫 `.env.dev`（開發用環境變數）
 - [ ] 寫 `pkg/response/response.go`：統一 JSON 回傳格式
+
   ```json
   {"code": 200, "message": "ok", "data": {...}, "pagination": {...}}
   ```
+
 - [ ] 寫 `internal/middleware/trace.go`（Request ID，參考 USCII trace.go）
 
 ### Day 2 — 6/16 (二)：Docker Compose + PostgreSQL Schema
@@ -63,6 +67,8 @@
 - [ ] 驗證：`docker compose up` → 連進 psql 確認三張表都存在
 
 ### Day 3 — 6/17 (三)：Users CRUD + GORM 基礎
+<!-- markdownlint-disable-next-line MD033 -->
+<span style="color: orange;">(重點GORM、HTTP API 與 Gin)</span>
 
 **目標**：User 的完整 CRUD API 可用 Postman 測試
 
@@ -277,6 +283,7 @@
   - ScyllaDB 掛掉 → 遙測寫入返回 `503 Service Unavailable`，設備 CRUD 仍正常
   - PostgreSQL 掛掉 → 所有寫入返回 `503`，讀取嘗試從 KeyDB 快取提供
 - [ ] 實作 `GET /health`：
+
   ```json
   {
     "status": "degraded",
@@ -340,6 +347,7 @@
   - 使用 `log/slog`（Go 標準庫）或 `zerolog`
   - 所有 log 都帶 request_id（從 middleware 注入的 trace ID）
 - [ ] 寫 `Makefile`：
+
   ```makefile
   build:    go build -o bin/api ./cmd/api/
   test:     go test ./... -v -race -cover
@@ -371,7 +379,6 @@
 | `Makefile` | [ ] |
 
 - [ ] 準備簡報講稿
-
 
 ### Day 26~28 — 7/11~7/13 (六)~(一)：全流程彩排 + 收尾
 
