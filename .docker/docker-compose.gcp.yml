@@ -1,0 +1,116 @@
+# .docker/docker-compose.gcp.yml
+# 統一設備管理平台 — GCP e2-micro 上執行
+#
+# ── 說明 ───────────────────────────────────────────────────────
+#  此檔部署在 GCP e2-micro (Always Free, us-west1/us-central1/us-east1)
+#  跑 PostgreSQL + KeyDB 兩個服務
+#
+#  e2-micro 規格（1 vCPU / 1 GB RAM）記憶體分配：
+#    - OS + Docker daemon     ≈ 250 MB
+#    - postgres (limit 384M)  ≈ 150~250 MB（實際依負載）
+#    - keydb    (limit 256M)  ≈ 64~128 MB
+#    - 留餘裕 ≈ 50~100 MB，避免 OOM killer 觸發
+#
+# ── SSH Tunnel 連線說明 ────────────────────────────────────────
+#  port 全部綁定 127.0.0.1（不對外暴露），透過 SSH Tunnel 存取：
+#    ssh -N -L 5433:localhost:5432 <user>@<GCP_IP> -i ~/.ssh/gcp_key
+#    ssh -N -L 6380:localhost:6379 <user>@<GCP_IP> -i ~/.ssh/gcp_key
+#
+#  本地 App .env.dev 對應設定：
+#    DATABASE_URL=postgres://udm:pass@localhost:5433/udm?sslmode=disable
+#    KEYDB_ADDR=localhost:6380
+#
+# ── 在 GCP 上啟動 ──────────────────────────────────────────────
+#  scp .docker/docker-compose.gcp.yml <user>@<GCP_IP>:~/docker-compose.yml
+#  ssh <user>@<GCP_IP>
+#  echo "POSTGRES_PASSWORD=your_strong_password" > .env
+#  docker compose --env-file .env up -d
+#
+# ────────────────────────────────────────────────────────────────
+
+services:
+
+  # ============================================
+  # PostgreSQL 17（主持久層）
+  # 針對 e2-micro (1GB RAM) 緊縮 shared_buffers / max_connections，
+  # 搭配 deploy.resources.limits 防止 OOM 崩潰。
+  # ============================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: udm-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-udm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-udm}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      # 只綁定 localhost；透過 SSH Tunnel 連線，不對外暴露
+      - "127.0.0.1:5432:5432"
+    # ── e2-micro 記憶體上限（防止 OOM killer）──────────────────
+    deploy:
+      resources:
+        limits:
+          memory: 384M    # 容器硬上限，超過直接 OOM kill
+        reservations:
+          memory: 128M    # Docker 排程預留量
+    # ── PostgreSQL 核心記憶體參數 ─────────────────────────────
+    # shared_buffers=64MB：PG 快取，建議為 RAM * 25%，但 e2-micro 從小開始
+    # max_connections=30 ：每個 connection 佔約 5~10MB work_mem，30 個約 120~300MB
+    # work_mem=4MB        ：單一 query 排序/hash 可用記憶體
+    # maintenance_work_mem=16MB：VACUUM / CREATE INDEX 等維護操作
+    command: >
+      postgres
+      -c shared_buffers=64MB
+      -c max_connections=30
+      -c work_mem=4MB
+      -c maintenance_work_mem=16MB
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-udm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # KeyDB（快取 + 在線狀態）
+  # 完全相容 Redis 協定，設定最大記憶體上限與 LRU 淘汰策略，
+  # 防止 cache 無限成長佔滿 VM RAM。
+  # ============================================
+  keydb:
+    image: eqalpha/keydb:latest
+    container_name: udm-keydb
+    restart: always
+    volumes:
+      - keydb_data:/data
+    ports:
+      # 只綁定 localhost；透過 SSH Tunnel 連線，不對外暴露
+      - "127.0.0.1:6379:6379"
+    # ── e2-micro 記憶體上限 ────────────────────────────────────
+    deploy:
+      resources:
+        limits:
+          memory: 256M    # 容器硬上限
+        reservations:
+          memory: 64M     # Docker 排程預留量
+    # ── KeyDB 啟動參數 ─────────────────────────────────────────
+    # --protected-mode no：因為 port 已綁 127.0.0.1，僅 SSH Tunnel 可達，安全
+    # --appendonly yes    ：持久化（AOF），重啟後資料不遺失
+    # --maxmemory 128mb   ：實際 cache 上限（低於 container limit 384MB，留給 AOF buffer）
+    # --maxmemory-policy allkeys-lru：超過上限時淘汰最久未使用的 key
+    command: >
+      keydb-server
+      --protected-mode no
+      --appendonly yes
+      --maxmemory 128mb
+      --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "keydb-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  pg_data:
+  keydb_data:

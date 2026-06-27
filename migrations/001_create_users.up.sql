@@ -1,0 +1,3 @@
+-- migrations/001_create_users.up.sql
+-- TODO: Day 2 完成
+-- 建立 users 表：UUID PK、username、email、password_hash、role、is_active

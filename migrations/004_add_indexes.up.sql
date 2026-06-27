@@ -1,0 +1,4 @@
+-- migrations/004_add_indexes.up.sql
+-- TODO: Day 2 完成
+-- pg_trgm GIN 索引（device_code, name）
+-- device_type / status / location 索引

@@ -1,0 +1,3 @@
+-- migrations/002_create_devices.up.sql
+-- TODO: Day 2 完成
+-- 建立 devices 表：UUID PK、device_code UNIQUE、name、device_type、location、metadata JSONB、owner_id FK、status

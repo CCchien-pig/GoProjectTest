@@ -1,0 +1,65 @@
+# .docker/docker-compose.dev.yml
+# 統一設備管理平台 — 本地開發環境
+#
+# ── 資料庫架構說明 ──────────────────────────────────────────────
+#  PostgreSQL  → GCP e2-micro，透過 SSH Tunnel 連線（本地 5433 → GCP 5432）
+#  KeyDB       → GCP e2-micro，透過 SSH Tunnel 連線（本地 6380 → GCP 6379）
+#  ScyllaDB    → 本地 Docker（高頻遙測資料，計算量大留本地跑）
+#
+# ── SSH Tunnel 啟動方式（在執行 docker compose 前先跑）──────────
+#  postgres tunnel:
+#    ssh -N -L 5433:localhost:5432 <user>@<GCP_IP> -i ~/.ssh/gcp_key
+#  keydb tunnel:
+#    ssh -N -L 6380:localhost:6379 <user>@<GCP_IP> -i ~/.ssh/gcp_key
+#
+#  或使用 .docker/ssh/start_tunnels.sh 一鍵啟動（見說明）
+#
+# ── 啟動指令 ───────────────────────────────────────────────────
+#  docker compose --env-file .env.dev -f .docker/docker-compose.dev.yml up -d
+#
+# ────────────────────────────────────────────────────────────────
+
+services:
+
+  # ============================================
+  # ScyllaDB（遙測時序資料 — 本地跑）
+  # ============================================
+  scylladb:
+    image: scylladb/scylla:latest
+    container_name: udm-scylladb
+    restart: unless-stopped
+    command: --smp 1 --memory 512M --overprovisioned 1
+    ports:
+      - "9042:9042"
+    volumes:
+      - scylla_data:/var/lib/scylla
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'DESCRIBE CLUSTER' || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ============================================
+  # ScyllaDB Keyspace 初始化
+  # ============================================
+  scylladb-init:
+    image: scylladb/scylla:latest
+    container_name: udm-scylladb-init
+    depends_on:
+      scylladb:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        echo "Creating ScyllaDB keyspace: ${SCYLLA_KEYSPACE}"
+        cqlsh scylladb 9042 -e "
+          CREATE KEYSPACE IF NOT EXISTS ${SCYLLA_KEYSPACE}
+          WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}
+          AND durable_writes = true;
+        "
+        echo "ScyllaDB keyspace '${SCYLLA_KEYSPACE}' ready!"
+    restart: "no"
+
+volumes:
+  scylla_data:

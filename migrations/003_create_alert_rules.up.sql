@@ -1,0 +1,3 @@
+-- migrations/003_create_alert_rules.up.sql
+-- TODO: Day 2 完成
+-- 建立 alert_rules 表：UUID PK、device_id FK ON DELETE CASCADE、metric_name、operator、threshold、severity、is_enabled
