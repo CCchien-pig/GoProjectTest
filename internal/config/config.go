@@ -8,7 +8,7 @@ type Config struct {
 	AppEnv  string
 	APIPort string
 
-	// PostgreSQL — 透過 SSH Tunnel 連線（本地 5433 → GCP:5432）
+	// PostgreSQL — 直連 GCP 外部 IP（受防火牆白名單保護）
 	DatabaseURL string
 	DBMaxConns  int
 	DBMinConns  int
@@ -17,7 +17,7 @@ type Config struct {
 	ScyllaHosts    string
 	ScyllaKeyspace string
 
-	// KeyDB — 透過 SSH Tunnel 連線（本地 6380 → GCP:6379）
+	// KeyDB — 直連 GCP 外部 IP（受防火牆白名單保護）
 	KeyDBAddr        string
 	KeyDBPassword    string
 	KeyDBClusterMode bool

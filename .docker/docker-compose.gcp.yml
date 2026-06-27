@@ -11,14 +11,14 @@
 #    - keydb    (limit 256M)  ≈ 64~128 MB
 #    - 留餘裕 ≈ 50~100 MB，避免 OOM killer 觸發
 #
-# ── SSH Tunnel 連線說明 ────────────────────────────────────────
-#  port 全部綁定 127.0.0.1（不對外暴露），透過 SSH Tunnel 存取：
-#    ssh -N -L 5433:localhost:5432 <user>@<GCP_IP> -i ~/.ssh/gcp_key
-#    ssh -N -L 6380:localhost:6379 <user>@<GCP_IP> -i ~/.ssh/gcp_key
+# ── 連線與防火牆說明 ───────────────────────────────────────────
+#  port 直接綁定 0.0.0.0，對外暴露。
+#  ⚠ 嚴格要求：必須在 GCP Console 設定防火牆規則（VPC network -> Firewall），
+#  僅允許你本機的對外 IP 存取 tcp:5432 和 tcp:6379。
 #
 #  本地 App .env.dev 對應設定：
-#    DATABASE_URL=postgres://udm:pass@localhost:5433/udm?sslmode=disable
-#    KEYDB_ADDR=localhost:6380
+#    DATABASE_URL=postgres://udm:pass@<GCP_EXTERNAL_IP>:5432/udm?sslmode=disable
+#    KEYDB_ADDR=<GCP_EXTERNAL_IP>:6379
 #
 # ── 在 GCP 上啟動 ──────────────────────────────────────────────
 #  scp .docker/docker-compose.gcp.yml <user>@<GCP_IP>:~/docker-compose.yml
@@ -47,8 +47,8 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
     ports:
-      # 只綁定 localhost；透過 SSH Tunnel 連線，不對外暴露
-      - "127.0.0.1:5432:5432"
+      # 綁定 0.0.0.0 直連；務必以 GCP 防火牆白名單保護
+      - "5432:5432"
     # ── e2-micro 記憶體上限（防止 OOM killer）──────────────────
     deploy:
       resources:
@@ -85,8 +85,8 @@ services:
     volumes:
       - keydb_data:/data
     ports:
-      # 只綁定 localhost；透過 SSH Tunnel 連線，不對外暴露
-      - "127.0.0.1:6379:6379"
+      # 綁定 0.0.0.0 直連；務必以 GCP 防火牆白名單保護
+      - "6379:6379"
     # ── e2-micro 記憶體上限 ────────────────────────────────────
     deploy:
       resources:
@@ -95,7 +95,7 @@ services:
         reservations:
           memory: 64M     # Docker 排程預留量
     # ── KeyDB 啟動參數 ─────────────────────────────────────────
-    # --protected-mode no：因為 port 已綁 127.0.0.1，僅 SSH Tunnel 可達，安全
+    # --protected-mode no：開啟遠端直連（由 GCP 防火牆限制來源 IP 保障安全）
     # --appendonly yes    ：持久化（AOF），重啟後資料不遺失
     # --maxmemory 128mb   ：實際 cache 上限（低於 container limit 384MB，留給 AOF buffer）
     # --maxmemory-policy allkeys-lru：超過上限時淘汰最久未使用的 key
