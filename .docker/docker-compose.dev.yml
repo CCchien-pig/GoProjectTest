@@ -1,18 +1,10 @@
 # .docker/docker-compose.dev.yml
-# 統一設備管理平台 — 本地開發環境
+# 統一設備管理平台 — 本地開發環境 (All-in-One)
 #
 # ── 資料庫架構說明 ──────────────────────────────────────────────
-#  PostgreSQL  → GCP e2-micro，透過 SSH Tunnel 連線（本地 5433 → GCP 5432）
-#  KeyDB       → GCP e2-micro，透過 SSH Tunnel 連線（本地 6380 → GCP 6379）
-#  ScyllaDB    → 本地 Docker（高頻遙測資料，計算量大留本地跑）
-#
-# ── SSH Tunnel 啟動方式（在執行 docker compose 前先跑）──────────
-#  postgres tunnel:
-#    ssh -N -L 5433:localhost:5432 <user>@<GCP_IP> -i ~/.ssh/gcp_key
-#  keydb tunnel:
-#    ssh -N -L 6380:localhost:6379 <user>@<GCP_IP> -i ~/.ssh/gcp_key
-#
-#  或使用 .docker/ssh/start_tunnels.sh 一鍵啟動（見說明）
+#  為了解決公司網域限制問題，所有資料庫（PostgreSQL, KeyDB, ScyllaDB）
+#  皆在本地 Docker 運行。只要有 Docker 和這份檔案，
+#  在家裡或公司都能獲得 100% 一致的開發環境。
 #
 # ── 啟動指令 ───────────────────────────────────────────────────
 #  docker compose --env-file .env.dev -f .docker/docker-compose.dev.yml up -d
@@ -22,7 +14,49 @@
 services:
 
   # ============================================
-  # ScyllaDB（遙測時序資料 — 本地跑）
+  # PostgreSQL 17（主持久層）
+  # ============================================
+  postgres:
+    image: postgres:17-alpine
+    container_name: udm-postgres
+    restart: unless-stopped
+    environment:
+      # POSTGRES_USER / POSTGRES_DB 有安全預設值，POSTGRES_PASSWORD 強制從 .env.dev 讀取
+      # 若未設定 POSTGRES_PASSWORD，docker compose 將直接報錯，避免以空密碼啟動
+      POSTGRES_USER: ${POSTGRES_USER:-udm}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?請在 .env.dev 設定 POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-iot_platform}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8 --locale=C"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-udm}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # KeyDB（快取 + 在線狀態）
+  # ============================================
+  keydb:
+    image: eqalpha/keydb:latest
+    container_name: udm-keydb
+    restart: unless-stopped
+    command: keydb-server --appendonly yes
+    volumes:
+      - keydb_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "keydb-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # ScyllaDB（遙測時序資料）
   # ============================================
   scylladb:
     image: scylladb/scylla:latest
@@ -62,4 +96,6 @@ services:
     restart: "no"
 
 volumes:
+  pg_data:
+  keydb_data:
   scylla_data:

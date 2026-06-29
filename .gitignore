@@ -1,5 +1,11 @@
+# .env 文件 — 包含密碼，不進 Git
 .env.dev
 *.env
+
+# 例外：.example 檔案是格式範本，就是要進 Git
+!.env.dev.example
+
+# Build 產物
 bin/
 /tmp/
 *.log

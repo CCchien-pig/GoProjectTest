@@ -10,40 +10,47 @@
           ▼               ▼                ▼
    ┌─────────────┐  ┌─────────────┐  ┌─────────────────┐
    │ PostgreSQL  │  │  ScyllaDB   │  │     KeyDB       │
-   │ GCP e2-micro│  │  本地 Docker │  │  GCP e2-micro   │
-   │ GCP 白名單直連 │  │             │  │ GCP 白名單直連    │
+   │ 本地 Docker │  │ 本地 Docker │  │  本地 Docker    │
    └─────────────┘  └─────────────┘  └─────────────────┘
 ```
 
 ## 資料庫配置
 
-| DB | 位置 | 連線方式 | Port |
+| DB | 位置 | 連線方式 | Local Port |
 |----|------|----------|-----------|
-| PostgreSQL | GCP e2-micro | 直連 (GCP 白名單) | <GCP_IP>:5432 |
-| KeyDB | GCP e2-micro | 直連 (GCP 白名單) | <GCP_IP>:6379 |
+| PostgreSQL | 本地 Docker | 直連 | localhost:5432 |
+| KeyDB | 本地 Docker | 直連 | localhost:6379 |
 | ScyllaDB | 本地 Docker | 直連 | localhost:9042 |
 
 ## 快速啟動
 
-### 1. GCP 設定防火牆白名單
-進入 GCP Console -> VPC 網路 -> 防火牆，新增規則允許你目前的外部 IP 存取 tcp:5432,6379。
-
-### 2. GCP 機器：啟動 PostgreSQL + KeyDB
+### 0. 設定環境變數
 ```bash
-# 上傳並啟動 GCP 端 compose
-scp .docker/docker-compose.gcp.yml <user>@<GCP_IP>:~/
-ssh <user>@<GCP_IP> "docker compose up -d"
+# 從範本複製環境變數檔
+# Windows (PowerShell)
+copy .env.dev.example .env.dev
+# Linux / macOS
+cp .env.dev.example .env.dev
 ```
+然後用文字編輯器打開 `.env.dev`，將 `POSTGRES_PASSWORD` 改為你自己的密碼。
 
-### 3. 本地：啟動 ScyllaDB
+### 1. 啟動所有資料庫 (PostgreSQL + KeyDB + ScyllaDB)
 ```bash
 make compose-up
 ```
 
-### 4. 啟動 API Server
-修改 `.env.dev` 填入正確的 `<GCP_EXTERNAL_IP>` 與密碼，然後啟動：
+### 2. 啟動 API Server
 ```bash
 make run
+```
+
+### 3. 停止與清理
+```bash
+# 停止容器
+make compose-down
+
+# 停止容器並清空資料（慎用）
+make compose-down-v
 ```
 
 ## 環境需求
@@ -53,9 +60,4 @@ make run
 
 ## 環境變數
 
-複製 `.env.dev` 並填入正確的密碼和 GCP 外部 IP：
-```env
-DATABASE_URL=postgres://udm:pass@<GCP_EXTERNAL_IP>:5432/udm?sslmode=disable
-KEYDB_ADDR=<GCP_EXTERNAL_IP>:6379
-SCYLLA_HOSTS=localhost:9042
-```
+詳見 [.env.dev.example](file:///c:/Projects/CC/Go/GoProjectTest/.env.dev.example) 了解所有可配置項目。實際的 `.env.dev` 已被 `.gitignore` 排除，不會進入版本控制。

@@ -10,7 +10,7 @@ lint:
 run:
 	go run ./cmd/api/
 
-# ScyllaDB 只在本地跑
+# 本地開發環境：同時啟動 PostgreSQL, KeyDB, ScyllaDB
 compose-up:
 	docker compose --env-file .env.dev -f .docker/docker-compose.dev.yml up -d
 
@@ -20,8 +20,4 @@ compose-down:
 compose-down-v:
 	docker compose --env-file .env.dev -f .docker/docker-compose.dev.yml down -v
 
-# GCP 機器上的 docker-compose（PostgreSQL + KeyDB）
-gcp-up:
-	@echo "請在 GCP 機器上執行: docker compose -f docker-compose.gcp.yml up -d"
-
-.PHONY: build test lint run compose-up compose-down compose-down-v gcp-up
+.PHONY: build test lint run compose-up compose-down compose-down-v

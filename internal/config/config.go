@@ -8,7 +8,7 @@ type Config struct {
 	AppEnv  string
 	APIPort string
 
-	// PostgreSQL — 直連 GCP 外部 IP（受防火牆白名單保護）
+	// PostgreSQL — 本地 Docker
 	DatabaseURL string
 	DBMaxConns  int
 	DBMinConns  int
@@ -17,7 +17,7 @@ type Config struct {
 	ScyllaHosts    string
 	ScyllaKeyspace string
 
-	// KeyDB — 直連 GCP 外部 IP（受防火牆白名單保護）
+	// KeyDB — 本地 Docker
 	KeyDBAddr        string
 	KeyDBPassword    string
 	KeyDBClusterMode bool

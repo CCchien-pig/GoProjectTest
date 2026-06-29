@@ -1,7 +1,11 @@
+# 對話紀錄更新規則
+
+閱讀Conversation Record.md後把新對話重點整理並更新Conversation Record.md，記得修改對話期間。
+
 # 對話重點記錄
 
-> 對話期間：2026/06/04 — 2026/06/16
-> 涵蓋主題：職涯分析 → 專案架構驗證 → Go 學習計畫 → 專題規劃
+> 對話期間：2026/06/04 — 2026/06/29
+> 涵蓋主題：職涯分析 → 專案架構驗證 → Go 學習計畫 → 專題規劃 → 基礎設施建置與資安防護
 
 ---
 
@@ -204,26 +208,28 @@
 
 ## 十、專案實作歷程 (2026/06/26 起)
 
-### Day 11 (6/26) — 專案起步與基礎設施建置
+### Day 11~14 (6/26~6/29) — 專案起步與基礎設施建置
 
-因原計畫 Day 1~10 尚未動工，本日進行趕工並確立混合部署架構。
+因原計畫 Day 1~10 尚未動工，進行趕工並確立本地開發架構與資安規範。
 
-**1. 架構決策 (GCP + 本地混合部署)**
+**1. 架構決策 (改採 All-in-One 本地 Docker)**
 
-- **PostgreSQL (主資料庫)**：部署於 GCP e2-micro，負責結構化資料 (Users, Devices, AlertRules)。
-- **KeyDB (快取層)**：同部署於 GCP e2-micro，負責 Token 快取與在線狀態。
-- **ScyllaDB (時序資料)**：保留在本地 Docker 運行，處理高頻寫入的遙測數據以節省 GCP 資源。
-- **連線安全性**：GCP 上的 PostgreSQL 與 KeyDB **透過防火牆白名單進行安全防護**，綁定 `0.0.0.0`，本地開發機透過 GCP外部IP直連PostgreSQL和KeyDB。
+- 因應公司網域防火牆限制，放棄 GCP 部署方案。
+- **PostgreSQL, KeyDB, ScyllaDB**：全部整合至 `.docker/docker-compose.dev.yml` 在本地 Docker 運行。
+- **優勢**：100% 離線開發、無網路相依性，且透過 Git 同步，可確保公司與家裡開發環境完全一致。
 
-**2. 資源最佳化 (針對 GCP e2-micro 1GB RAM)**
+**2. 開發環境與指令簡化**
 
-- 透過 `docker-compose.gcp.yml` 嚴格限制容器資源，防範 OOM (Out Of Memory)：
-  - **PostgreSQL**: 設定 `memory limit: 384M`，緊縮 `shared_buffers=64MB`, `max_connections=30`, `work_mem=4MB`。
-  - **KeyDB**: 設定 `memory limit: 256M`，限制 `--maxmemory 128mb` 並啟用 `allkeys-lru` 淘汰策略。
+- 刪除 `docker-compose.gcp.yml` 與 SSH Tunnel 腳本。
+- `Makefile` 提供單一啟動指令 `make compose-up` 即可一次帶起所有依賴庫。
 
-**3. 專案骨架與開發環境初始化**
+**3. 資安防護與環境變數管理 (6/29 修正)**
+
+- **移除硬編碼密碼**：禁止在 `docker-compose.dev.yml` 中使用 fallback 預設密碼，改用 `:?` 語法 (`${POSTGRES_PASSWORD:?錯誤訊息}`) 強制檢查，避免以空密碼或不安全的預設密碼啟動服務。
+- **.env 管理規範**：建立 `.env.dev.example` 作為 Git 版控的公開範本，包含密碼的 `.env.dev` 則透過 `.gitignore` (`!.env.dev.example`) 嚴格排除。
+
+**4. 專案骨架初始化**
 
 - 完成 Go Module 初始化 (`github.com/your-name/udm`)。
 - 建立符合 USCII 規範的分層目錄結構 (`cmd/api`, `internal/handler`, `internal/service`, `internal/repository` 等)。
-- 建立 `Makefile`、`.env.dev`、以及 SSH Tunnel 一鍵管理腳本 (`.docker/ssh/start_tunnels.sh`)。
 - 建立各層級的 Placeholder 原始碼檔案，準備進入後續業務邏輯開發。
