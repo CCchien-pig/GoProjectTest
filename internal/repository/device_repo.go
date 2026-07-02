@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/model"
 	"gorm.io/gorm"
 )
 
-// DeviceRepository 定義對 devices 資料表的資料存取介面
+// DeviceRepository 定義�?devices 資�?表�?資�?存�?介面
 type DeviceRepository interface {
 	Create(ctx context.Context, device *model.Device) error
 	FindByID(ctx context.Context, id uuid.UUID) (*model.Device, error)
@@ -27,7 +27,7 @@ type gormDeviceRepository struct {
 	db *gorm.DB
 }
 
-// NewDeviceRepository 建立 GORM 的 DeviceRepository 實作
+// NewDeviceRepository 建�? GORM ??DeviceRepository 實�?
 func NewDeviceRepository(db *gorm.DB) DeviceRepository {
 	return &gormDeviceRepository{db: db}
 }
@@ -80,21 +80,21 @@ func (r *gormDeviceRepository) List(ctx context.Context, cursor string, limit in
 		query = query.Where("location = ?", location)
 	}
 
-	// pg_trgm 模糊搜尋
+	// pg_trgm 模�??��?
 	if search != "" {
 		query = query.Where("device_code ILIKE ? OR name ILIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 
-	// 套用 Cursor-based 分頁 (預設降序排序：最新創建的在前面)
+	// 套用 Cursor-based ?��? (?�設?��??��?：�??�創建�??��???
 	if cursor != "" {
 		cursorTime, cursorID, err := decodeCursor(cursor)
 		if err == nil {
-			// 在 PostgreSQL 中，可以使用 Tuple 比較：(created_at, id) < (cursorTime, cursorID)
+			// ??PostgreSQL 中�??�以使用 Tuple 比�?�?created_at, id) < (cursorTime, cursorID)
 			query = query.Where("(created_at, id) < (?, ?)", cursorTime, cursorID)
 		}
 	}
 
-	// 排序並限制回傳筆數 (多查一筆以確認有無下一頁)
+	// ?��?並�??��??��???(多查一筆以確�??�無下�???
 	query = query.Order("created_at DESC, id DESC").Limit(limit + 1)
 
 	var devices []*model.Device
@@ -104,7 +104,7 @@ func (r *gormDeviceRepository) List(ctx context.Context, cursor string, limit in
 
 	nextCursor := ""
 	if len(devices) > limit {
-		// 有下一頁，生成 next_cursor 並移除最後一筆
+		// 若取回 limit+1 筆，表示有下一頁；取最後一筆生成 next_cursor 並移除多取的那筆
 		nextCursor = encodeCursor(devices[limit-1].CreatedAt, devices[limit-1].ID)
 		devices = devices[:limit]
 	}
@@ -112,7 +112,7 @@ func (r *gormDeviceRepository) List(ctx context.Context, cursor string, limit in
 	return devices, nextCursor, nil
 }
 
-// Cursor 編解碼輔助函式
+// Cursor 編解碼輔助函數
 func encodeCursor(t time.Time, id uuid.UUID) string {
 	str := fmt.Sprintf("%s,%s", t.Format(time.RFC3339Nano), id.String())
 	return base64.StdEncoding.EncodeToString([]byte(str))

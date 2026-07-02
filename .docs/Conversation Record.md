@@ -242,3 +242,9 @@
 - **日分區跨天查詢**：考量 Scan Penalty，在 Repository 實作中自動拆分查詢日期，個別發起 partition-key 查詢並在記憶體中進行高性能排序。
 - **降級與高可用 (Degraded Mode)**：在 `main.go` 啟動階段對資料庫進行連線偵測與容錯處理。當 ScyllaDB 斷線時，設備與使用者 CRUD 依然完全可用，遙測 API 則能優雅回傳 HTTP `503 Service Unavailable` 說明系統降級。
 - **整合布線與測試**：實作 `routes.go` 與 `cmd/api/main.go` 完成所有模組的依賴注入與 Graceful Shutdown，整合測試與編譯成功。
+
+### 3. 高優先級 Bug 修復與本地環境驗證 (2026/07/02)
+- **修正 Nil Panic**：修復 `device_service.go` 中因 ScyllaDB 降級導致的 `telemetryRepo` 為 `nil` 的 panic 問題。
+- **修正 PostgreSQL 容錯邏輯**：PostgreSQL 為核心資料庫不可降級，將離線警告改為 `log.Fatalf` 立即中止，避免引發後續層級的 Panic。
+- **ScyllaDB 架構升級**：為支援 ScyllaDB 6.0 的 Tablet Replication 新特性，將 `docker-compose.dev.yml` 及 `client.go` 的 Keyspace 策略由 `SimpleStrategy` 全面升級為符合生產環境標準的 `NetworkTopologyStrategy`。
+- **環境自動化驗證**：引導並使用 `winget` 安裝 Windows `make` 工具，成功背景啟動 `docker compose` 與 `go run ./cmd/api/`，驗證三個資料庫 (PostgreSQL, ScyllaDB, KeyDB) 全數完美連線。

@@ -1,4 +1,4 @@
-module github.com/your-name/udm
+module GoProject/udm
 
 go 1.26.3
 

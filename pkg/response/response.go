@@ -14,7 +14,7 @@ type Response struct {
 	Pagination *Pagination `json:"pagination,omitempty"`
 }
 
-// Pagination cursor-based 分頁資訊
+// Pagination cursor-based 分頁資料
 type Pagination struct {
 	NextCursor string `json:"next_cursor,omitempty"`
 	HasMore    bool   `json:"has_more"`
@@ -30,7 +30,7 @@ func OK(c *gin.Context, data interface{}) {
 	})
 }
 
-// OKWithPagination 回傳 200 成功且帶有分頁資訊
+// OKWithPagination 回傳 200 成功且帶分頁資訊
 func OKWithPagination(c *gin.Context, data interface{}, p *Pagination) {
 	c.JSON(http.StatusOK, Response{
 		Code:       http.StatusOK,
@@ -48,7 +48,7 @@ func BadRequest(c *gin.Context, message string) {
 	})
 }
 
-// NotFound 回傳 404 資源不存在
+// NotFound 回傳 404 資料不存在
 func NotFound(c *gin.Context, message string) {
 	c.JSON(http.StatusNotFound, Response{
 		Code:    http.StatusNotFound,

@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// AlertRule 代表 alert_rules 資料表的 GORM 模型
+// AlertRule �?�� alert_rules 資�?表�? GORM 模�?
 type AlertRule struct {
 	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	DeviceID   uuid.UUID `gorm:"type:uuid;column:device_id;not null" json:"device_id"`

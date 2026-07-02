@@ -6,17 +6,17 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/service"
-	"github.com/your-name/udm/pkg/response"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/service"
+	"GoProject/udm/pkg/response"
 )
 
-// TelemetryHandler 處理遙測及告警事件 HTTP 請求
+// TelemetryHandler 處理遙測與告警事件相關 HTTP 請求
 type TelemetryHandler struct {
 	svc service.TelemetryService
 }
 
-// NewTelemetryHandler 建立 TelemetryHandler 實作
+// NewTelemetryHandler 建立 TelemetryHandler 實體
 func NewTelemetryHandler(svc service.TelemetryService) *TelemetryHandler {
 	return &TelemetryHandler{svc: svc}
 }
@@ -110,7 +110,7 @@ func (h *TelemetryHandler) QueryLatest(c *gin.Context) {
 	response.OK(c, resp)
 }
 
-// DeleteByRange 刪除特定時間範圍的遙測資料
+// DeleteByRange 刪除指定時間範圍的遙測資料
 func (h *TelemetryHandler) DeleteByRange(c *gin.Context) {
 	deviceIDStr := c.Param("id")
 	deviceID, err := uuid.Parse(deviceIDStr)
@@ -151,7 +151,7 @@ func (h *TelemetryHandler) DeleteByRange(c *gin.Context) {
 	response.OK(c, "telemetry deleted successfully")
 }
 
-// QueryAlertEvents 查詢告警事件時序資料
+// QueryAlertEvents 查詢告警事件歷史資料
 func (h *TelemetryHandler) QueryAlertEvents(c *gin.Context) {
 	deviceIDStr := c.Param("id")
 	deviceID, err := uuid.Parse(deviceIDStr)
@@ -176,7 +176,7 @@ func (h *TelemetryHandler) QueryAlertEvents(c *gin.Context) {
 	response.OK(c, resp)
 }
 
-// AcknowledgeAlertEvent 確認/排除告警事件
+// AcknowledgeAlertEvent 確認/消除告警事件
 func (h *TelemetryHandler) AcknowledgeAlertEvent(c *gin.Context) {
 	deviceIDStr := c.Param("device_id")
 	deviceID, err := uuid.Parse(deviceIDStr)

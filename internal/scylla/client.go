@@ -7,12 +7,12 @@ import (
 	"github.com/gocql/gocql"
 )
 
-// Client 封裝 ScyllaDB 的 session 操作
+// Client 封裝 ScyllaDB session 連線
 type Client struct {
 	Session *gocql.Session
 }
 
-// NewClient 建立 ScyllaDB 連線，並確認 Schema 已經建立
+// NewClient 建立 ScyllaDB 連線，並確保 Schema 已建立
 func NewClient(hosts []string, keyspace string) (*Client, error) {
 	cluster := gocql.NewCluster(hosts...)
 	cluster.Timeout = 10 * time.Second
@@ -32,7 +32,7 @@ func NewClient(hosts []string, keyspace string) (*Client, error) {
 
 	session.Close()
 
-	// 重新指定 keyspace 連線
+	// 重新指定 keyspace 建立 session
 	cluster.Keyspace = keyspace
 	finalSession, err := cluster.CreateSession()
 	if err != nil {
@@ -50,9 +50,9 @@ func (c *Client) Close() {
 	}
 }
 
-// EnsureSchema 確保 keyspace 和 table 存在
+// EnsureSchema 確保 keyspace 與 table 存在
 func (c *Client) EnsureSchema(keyspace string) error {
-	// 建立 keyspace (採用NetworkTopologyStrategy)
+	// 建立 keyspace（使用 NetworkTopologyStrategy 支援 Tablet Replication）
 	err := c.Session.Query(fmt.Sprintf(`
 		CREATE KEYSPACE IF NOT EXISTS %s
 		WITH replication = {'class': 'NetworkTopologyStrategy', 'datacenter1': 1}
@@ -61,7 +61,7 @@ func (c *Client) EnsureSchema(keyspace string) error {
 		return err
 	}
 
-	// 遙測時序資料表
+	// 建立遙測資料表
 	err = c.Session.Query(fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s.telemetry (
 			device_id uuid,
@@ -79,7 +79,7 @@ func (c *Client) EnsureSchema(keyspace string) error {
 		return err
 	}
 
-	// 告警事件時序資料表
+	// 建立告警事件資料表
 	err = c.Session.Query(fmt.Sprintf(`
 		CREATE TABLE IF NOT EXISTS %s.alert_events (
 			device_id uuid,

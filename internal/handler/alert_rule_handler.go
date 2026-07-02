@@ -5,9 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/service"
-	"github.com/your-name/udm/pkg/response"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/service"
+	"GoProject/udm/pkg/response"
 )
 
 // AlertRuleHandler 處理告警規則相關 HTTP 請求
@@ -15,7 +15,7 @@ type AlertRuleHandler struct {
 	svc service.AlertRuleService
 }
 
-// NewAlertRuleHandler 建立 AlertRuleHandler 實作
+// NewAlertRuleHandler 建立 AlertRuleHandler 實體
 func NewAlertRuleHandler(svc service.AlertRuleService) *AlertRuleHandler {
 	return &AlertRuleHandler{svc: svc}
 }
@@ -48,7 +48,7 @@ func (h *AlertRuleHandler) Create(c *gin.Context) {
 	response.OK(c, resp)
 }
 
-// FindByDeviceID 取得某設備的所有告警規則
+// FindByDeviceID 查詢某設備的所有告警規則
 func (h *AlertRuleHandler) FindByDeviceID(c *gin.Context) {
 	deviceIDStr := c.Param("id")
 	deviceID, err := uuid.Parse(deviceIDStr)

@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/model"
 )
 
 // CreateDeviceReq 建立設備請求
@@ -20,15 +20,15 @@ type CreateDeviceReq struct {
 
 // UpdateDeviceReq 更新設備請求
 type UpdateDeviceReq struct {
-	Name       *string                 `json:"name" binding:"omitempty,min=2,max=200"`
-	DeviceType *string                 `json:"device_type" binding:"omitempty,oneof=sensor controller gateway"`
-	Location   *string                 `json:"location" binding:"omitempty,max=200"`
-	Metadata   map[string]interface{}  `json:"metadata" binding:"omitempty"`
-	OwnerID    *uuid.UUID              `json:"owner_id" binding:"omitempty"`
-	Status     *string                 `json:"status" binding:"omitempty,oneof=active inactive maintenance"`
+	Name       *string                `json:"name" binding:"omitempty,min=2,max=200"`
+	DeviceType *string                `json:"device_type" binding:"omitempty,oneof=sensor controller gateway"`
+	Location   *string                `json:"location" binding:"omitempty,max=200"`
+	Metadata   map[string]interface{} `json:"metadata" binding:"omitempty"`
+	OwnerID    *uuid.UUID             `json:"owner_id" binding:"omitempty"`
+	Status     *string                `json:"status" binding:"omitempty,oneof=active inactive maintenance"`
 }
 
-// DeviceResp 設備回應 DTO
+// DeviceResp 設備回傳 DTO
 type DeviceResp struct {
 	ID         uuid.UUID              `json:"id"`
 	DeviceCode string                 `json:"device_code"`
@@ -42,7 +42,7 @@ type DeviceResp struct {
 	UpdatedAt  time.Time              `json:"updated_at"`
 	Owner      *UserResp              `json:"owner,omitempty"`
 
-	// ScyllaDB 遙測欄位 (Week 2 擴充用)
+	// ScyllaDB 遙測欄位（Week 2 新增）
 	LatestTelemetry interface{} `json:"latest_telemetry,omitempty"`
 }
 
@@ -71,7 +71,7 @@ func ToDeviceResp(device *model.Device) *DeviceResp {
 	}
 }
 
-// ToDeviceRespList 批量轉換
+// ToDeviceRespList 批次轉換
 func ToDeviceRespList(devices []*model.Device) []*DeviceResp {
 	list := make([]*DeviceResp, len(devices))
 	for i, d := range devices {

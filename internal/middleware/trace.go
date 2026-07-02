@@ -5,7 +5,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// TraceID 每個 HTTP Request 注入唯一 UUID 作為 trace_id，後續 log 可共用此 ID
+// TraceID 每個 HTTP Request 注入唯一 UUID 作為 trace_id，方便 log 共用此 ID
 func TraceID() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		requestID := uuid.New().String()

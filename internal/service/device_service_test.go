@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/model"
 )
 
 type mockDeviceRepository struct {
@@ -101,13 +101,13 @@ func TestDeviceService_Create(t *testing.T) {
 		t.Errorf("unexpected device response: %+v", resp)
 	}
 
-	// 重複編號
+	// ?��?編�?
 	_, err = svc.Create(context.Background(), req)
 	if err == nil || err != ErrDeviceCodeDuplicate {
 		t.Errorf("expected ErrDeviceCodeDuplicate, got %v", err)
 	}
 
-	// 無效 Owner
+	// ?��? Owner
 	fakeID := uuid.New()
 	req.DeviceCode = "DEV-002"
 	req.OwnerID = &fakeID

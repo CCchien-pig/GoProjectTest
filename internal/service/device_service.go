@@ -6,16 +6,16 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/model"
-	"github.com/your-name/udm/internal/repository"
-	"github.com/your-name/udm/internal/scylla"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/model"
+	"GoProject/udm/internal/repository"
+	"GoProject/udm/internal/scylla"
 )
 
 var (
-	// ErrDeviceNotFound 代表找不到設備
+	// ErrDeviceNotFound 找不到設備錯誤
 	ErrDeviceNotFound = errors.New("device not found")
-	// ErrDeviceCodeDuplicate 代表設備編號重複
+	// ErrDeviceCodeDuplicate 設備編號重複錯誤
 	ErrDeviceCodeDuplicate = errors.New("device code already exists")
 )
 
@@ -34,7 +34,7 @@ type deviceService struct {
 	telemetryRepo scylla.TelemetryRepository
 }
 
-// NewDeviceService 建立 DeviceService 實作
+// NewDeviceService 建立 DeviceService 實體
 func NewDeviceService(repo repository.DeviceRepository, userRepo repository.UserRepository, telemetryRepo scylla.TelemetryRepository) DeviceService {
 	return &deviceService{
 		repo:          repo,

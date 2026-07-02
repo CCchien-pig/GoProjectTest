@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/model"
 )
 
 type mockTelemetryRepository struct {
@@ -80,8 +80,7 @@ func TestTelemetryService_BatchInsert_AlertTrigger(t *testing.T) {
 	alertRuleRepo.rules[rule.ID] = rule
 	alertRuleRepo.rulesByDevice[devID] = append(alertRuleRepo.rulesByDevice[devID], rule)
 
-	// 1. 測試沒有觸發告警的遙測寫入
-	req := &dto.BatchTelemetryReq{
+	// 1. 測試沒�?觸發?�警?��?測寫??	req := &dto.BatchTelemetryReq{
 		Points: []dto.TelemetryPoint{
 			{
 				RecordedAt: time.Now(),
@@ -100,7 +99,7 @@ func TestTelemetryService_BatchInsert_AlertTrigger(t *testing.T) {
 		t.Errorf("expected 0 alert events, got %d", len(alertRepo.events))
 	}
 
-	// 2. 測試有觸發告警的遙測寫入 (45.0 > 40.0)
+	// 2. 測試?�觸?��?警�??�測寫入 (45.0 > 40.0)
 	reqTrigger := &dto.BatchTelemetryReq{
 		Points: []dto.TelemetryPoint{
 			{

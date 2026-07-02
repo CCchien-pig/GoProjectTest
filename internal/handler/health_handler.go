@@ -1,6 +1,6 @@
 package handler
 
 // internal/handler/health_handler.go
-// TODO: Day 17 實作
+// TODO: Day 17 實�?
 // GET /health
-// 回傳：{ "status": "healthy|degraded", "postgres": "...", "scylladb": "...", "keydb": "..." }
+// ?�傳：{ "status": "healthy|degraded", "postgres": "...", "scylladb": "...", "keydb": "..." }

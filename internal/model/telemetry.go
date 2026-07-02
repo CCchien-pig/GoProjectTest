@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// TelemetryData 代表 ScyllaDB 中 telemetry 表的時序資料結構
+// TelemetryData �?�� ScyllaDB �?telemetry 表�??��?資�?結�?
 type TelemetryData struct {
 	DeviceID   uuid.UUID         `json:"device_id"`
 	Date       string            `json:"date"`
@@ -17,7 +17,7 @@ type TelemetryData struct {
 	Tags       map[string]string `json:"tags,omitempty"`
 }
 
-// AlertEvent 代表 ScyllaDB 中 alert_events 表的資料結構
+// AlertEvent �?�� ScyllaDB �?alert_events 表�?資�?結�?
 type AlertEvent struct {
 	DeviceID    uuid.UUID `json:"device_id"`
 	Month       string    `json:"month"` // e.g. "2026-07"

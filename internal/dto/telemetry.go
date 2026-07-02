@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// TelemetryPoint 單一遙測資料點
+// TelemetryPoint 單筆遙測資料點
 type TelemetryPoint struct {
 	RecordedAt time.Time         `json:"recorded_at" binding:"required"`
 	MetricName string            `json:"metric_name" binding:"required,min=1"`
@@ -20,7 +20,7 @@ type BatchTelemetryReq struct {
 	Points []TelemetryPoint `json:"points" binding:"required,dive,required"`
 }
 
-// TelemetryQueryResp 遙測資料查詢回應 DTO
+// TelemetryQueryResp 遙測資料查詢回傳 DTO
 type TelemetryQueryResp struct {
 	DeviceID  uuid.UUID        `json:"device_id"`
 	IsDeleted bool             `json:"is_deleted"`

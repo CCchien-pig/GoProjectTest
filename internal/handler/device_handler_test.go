@@ -11,8 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/service"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/service"
 )
 
 type mockDeviceService struct {

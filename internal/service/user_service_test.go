@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/model"
 )
 
 type mockUserRepository struct {
@@ -93,13 +93,13 @@ func TestUserService_Create(t *testing.T) {
 		t.Errorf("unexpected user response: %+v", resp)
 	}
 
-	// 測試重複註冊 Username
+	// 測試?��?註�? Username
 	_, err = svc.Create(context.Background(), req)
 	if err == nil || err != ErrUsernameDuplicate {
 		t.Errorf("expected ErrUsernameDuplicate, got %v", err)
 	}
 
-	// 測試重複註冊 Email
+	// 測試?��?註�? Email
 	req2 := &dto.CreateUserReq{
 		Username: "another",
 		Email:    "test@example.com",

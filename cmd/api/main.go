@@ -13,14 +13,14 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
-	"github.com/your-name/udm/internal/config"
-	"github.com/your-name/udm/internal/handler"
-	"github.com/your-name/udm/internal/keydb"
-	"github.com/your-name/udm/internal/model"
-	"github.com/your-name/udm/internal/repository"
-	"github.com/your-name/udm/internal/routes"
-	"github.com/your-name/udm/internal/scylla"
-	"github.com/your-name/udm/internal/service"
+	"GoProject/udm/internal/config"
+	"GoProject/udm/internal/handler"
+	"GoProject/udm/internal/keydb"
+	"GoProject/udm/internal/model"
+	"GoProject/udm/internal/repository"
+	"GoProject/udm/internal/routes"
+	"GoProject/udm/internal/scylla"
+	"GoProject/udm/internal/service"
 )
 
 func main() {
@@ -36,12 +36,12 @@ func main() {
 	var alertRuleRepo repository.AlertRuleRepository
 
 	if err != nil {
-		// PostgreSQL 為核心資料庫，連線失敗則立即中止啟動
-		// （與 ScyllaDB/KeyDB 的降級處理不同，因為主檔 CRUD 全部依賴 PostgreSQL）
+		// PostgreSQL 為核心資料庫，若失敗則立即中止服務
+		// （與 ScyllaDB/KeyDB 不同，不可降級，因為主要 CRUD 全部依賴 PostgreSQL）
 		log.Fatalf("CRITICAL: PostgreSQL connection failed: %v\n", err)
 	} else {
 		log.Println("PostgreSQL connected successfully")
-		// 自動 Migration 資料表
+		// 執行 Migration 資料表
 		if err := db.AutoMigrate(&model.User{}, &model.Device{}, &model.AlertRule{}); err != nil {
 			log.Fatalf("failed to auto migrate tables: %v", err)
 		}
@@ -107,7 +107,7 @@ func main() {
 	}()
 	log.Printf("HTTP Server is listening on port %s", cfg.APIPort)
 
-	// 8. 實作 Graceful Shutdown (優雅關閉)
+	// 8. 實作 Graceful Shutdown（優雅關機）
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -120,7 +120,7 @@ func main() {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
-	// 依序關閉連線釋放資源
+	// 依序關閉並釋放資源
 	if keydbClient != nil {
 		if err := keydbClient.Close(); err != nil {
 			log.Printf("error closing KeyDB: %v", err)

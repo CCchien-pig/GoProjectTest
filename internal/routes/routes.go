@@ -4,11 +4,11 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/your-name/udm/internal/handler"
-	"github.com/your-name/udm/internal/middleware"
+	"GoProject/udm/internal/handler"
+	"GoProject/udm/internal/middleware"
 )
 
-// Dependencies 封裝所有 API 路由所需的 Handler 實作
+// Dependencies 封裝所有 API 路由所需的 Handler 實體
 type Dependencies struct {
 	UserHandler      *handler.UserHandler
 	DeviceHandler    *handler.DeviceHandler
@@ -16,15 +16,15 @@ type Dependencies struct {
 	AlertRuleHandler *handler.AlertRuleHandler
 }
 
-// Setup 初始化 Gin 引擎路由與中間件
+// Setup 設定 Gin 引擎路由與中間件
 func Setup(deps *Dependencies) *gin.Engine {
 	r := gin.New()
 
-	// 載入基本中間件與自訂的 TraceID 中間件
+	// 載入基本中間件：日誌、Panic 恢復、TraceID 中間件
 	r.Use(gin.Logger(), gin.Recovery())
 	r.Use(middleware.TraceID())
 
-	// 簡易健康檢查 (後續降級處理會進行擴充)
+	// 簡易健康檢查（後續可加入各資料庫的健康狀態）
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
 	})
@@ -53,7 +53,7 @@ func Setup(deps *Dependencies) *gin.Engine {
 			devices.POST("/:id/alert-rules", deps.AlertRuleHandler.Create)
 			devices.GET("/:id/alert-rules", deps.AlertRuleHandler.FindByDeviceID)
 
-			// Telemetry & Alert Events 子資源 (ScyllaDB 時序數據)
+			// Telemetry & Alert Events 子資源（ScyllaDB 相關端點）
 			devices.POST("/:id/telemetry", deps.TelemetryHandler.BatchIngest)
 			devices.GET("/:id/telemetry", deps.TelemetryHandler.Query)
 			devices.GET("/:id/telemetry/latest", deps.TelemetryHandler.QueryLatest)
@@ -68,7 +68,7 @@ func Setup(deps *Dependencies) *gin.Engine {
 			alertRules.DELETE("/:id", deps.AlertRuleHandler.Delete)
 		}
 
-		// 4. Alert Event ACK 專屬端點 (配合多集群主鍵)
+		// 4. Alert Event ACK 專屬端點（含多個路徑參數）
 		v1.PUT("/alert-events/:device_id/:month/:triggered_at/:rule_id/ack", deps.TelemetryHandler.AcknowledgeAlertEvent)
 	}
 

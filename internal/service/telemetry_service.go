@@ -7,14 +7,14 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/model"
-	"github.com/your-name/udm/internal/repository"
-	"github.com/your-name/udm/internal/scylla"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/model"
+	"GoProject/udm/internal/repository"
+	"GoProject/udm/internal/scylla"
 )
 
 var (
-	// ErrScyllaOffline 代表 ScyllaDB 斷線/離線
+	// ErrScyllaOffline 代表 ScyllaDB 離線/不可用
 	ErrScyllaOffline = errors.New("scylla time-series database is offline")
 )
 
@@ -35,7 +35,7 @@ type telemetryService struct {
 	alertRuleRepo repository.AlertRuleRepository
 }
 
-// NewTelemetryService 建立 TelemetryService 實作
+// NewTelemetryService 建立 TelemetryService 實體
 func NewTelemetryService(
 	telemetryRepo scylla.TelemetryRepository,
 	alertRepo scylla.AlertEventRepository,
@@ -60,7 +60,7 @@ func (s *telemetryService) BatchInsert(ctx context.Context, deviceID uuid.UUID, 
 		return ErrDeviceNotFound
 	}
 
-	// 2. 寫入 ScyllaDB 遙測時序表 (若 ScyllaDB 斷線，回報錯誤降級)
+	// 2. 寫入 ScyllaDB 遙測時序（若 ScyllaDB 離線，回傳錯誤）
 	if s.telemetryRepo == nil {
 		return ErrScyllaOffline
 	}
@@ -68,7 +68,7 @@ func (s *telemetryService) BatchInsert(ctx context.Context, deviceID uuid.UUID, 
 		return fmt.Errorf("batch insert telemetry: %w", err)
 	}
 
-	// 3. 告警評估邏輯：查出該設備的所有告警規則
+	// 3. 告警評估邏輯：查詢該設備的告警規則
 	rules, err := s.alertRuleRepo.FindByDeviceID(ctx, deviceID)
 	if err != nil {
 		return fmt.Errorf("find alert rules: %w", err)
@@ -97,7 +97,7 @@ func (s *telemetryService) BatchInsert(ctx context.Context, deviceID uuid.UUID, 
 					}
 					if s.alertRepo != nil {
 						if err := s.alertRepo.Insert(ctx, event); err != nil {
-							// 記錄 log，不應因為告警寫入失敗而導致遙測 API 崩潰
+							// 記錄 log，不因告警寫入失敗而讓主要 API 崩潰
 							fmt.Printf("failed to insert alert event: %v\n", err)
 						}
 					}
@@ -110,7 +110,7 @@ func (s *telemetryService) BatchInsert(ctx context.Context, deviceID uuid.UUID, 
 }
 
 func (s *telemetryService) Query(ctx context.Context, deviceID uuid.UUID, start, end time.Time, metricName string) (*dto.TelemetryQueryResp, error) {
-	// 確認設備是否存在（若不存在代表已被刪除，但我們依然回傳歷史資料並加上 is_deleted 標記）
+	// 確認設備是否存在（若不存在代表已被刪除，但仍可查詢歷史資料並標記 is_deleted）
 	dev, err := s.deviceRepo.FindByID(ctx, deviceID)
 	if err != nil {
 		return nil, fmt.Errorf("find device: %w", err)

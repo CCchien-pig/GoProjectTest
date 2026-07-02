@@ -5,8 +5,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/model"
 )
 
 type mockAlertRuleRepository struct {
@@ -101,20 +101,19 @@ func TestAlertRuleService_Create(t *testing.T) {
 		t.Errorf("unexpected rule response: %+v", resp)
 	}
 
-	// 無效設備
+	// ?��?設�?
 	_, err = svc.Create(context.Background(), uuid.New(), req)
 	if err == nil || err != ErrDeviceNotFound {
 		t.Errorf("expected ErrDeviceNotFound, got %v", err)
 	}
 
-	// 無效運算子
-	req.Operator = "invalid"
+	// ?��??��?�?	req.Operator = "invalid"
 	_, err = svc.Create(context.Background(), dev.ID, req)
 	if err == nil || err != ErrInvalidOperator {
 		t.Errorf("expected ErrInvalidOperator, got %v", err)
 	}
 
-	// 無效嚴重等級
+	// ?��??��?等�?
 	req.Operator = "gt"
 	req.Severity = "epic"
 	_, err = svc.Create(context.Background(), dev.ID, req)

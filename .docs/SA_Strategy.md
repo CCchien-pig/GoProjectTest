@@ -277,4 +277,19 @@ Consumer（訊息接收方）
 
 ---
 
+### [2026/07/02] — 解決 ScyllaDB Tablet Replication 不支援 SimpleStrategy 錯誤
+
+**關鍵字 / Prompt**：
+> "ScyllaDB connection failed: failed to ensure schema: SimpleStrategy doesn't support tablet replication"
+
+**獲得的關鍵洞見**：
+- ScyllaDB 6.0 引入的 Tablet Replication 新底層架構不支援 `SimpleStrategy`。
+- 必須將 Keyspace 的 replication class 改為 `NetworkTopologyStrategy`。
+- 這不僅解決了啟動報錯，更讓本地開發環境的架構與 Production（多資料中心）架構保持一致，符合 SA 的最佳實踐。
+
+**後續驗證**：
+- 同步修改 `docker-compose.dev.yml` (初始化) 和 `client.go` (API 啟動檢查) 後，重新啟動 API 伺服器，觀察日誌是否印出 `ScyllaDB connected and keyspace initialized successfully`。
+
+---
+
 *此文件持續更新，每次使用 AI 解決重要技術問題後，於當日補充一筆紀錄。*

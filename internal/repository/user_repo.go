@@ -5,11 +5,11 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/model"
 	"gorm.io/gorm"
 )
 
-// UserRepository 定義對 users 資料表的資料存取介面
+// UserRepository 定義�?users 資�?表�?資�?存�?介面
 type UserRepository interface {
 	Create(ctx context.Context, user *model.User) error
 	FindByID(ctx context.Context, id uuid.UUID) (*model.User, error)
@@ -23,7 +23,7 @@ type gormUserRepository struct {
 	db *gorm.DB
 }
 
-// NewUserRepository 建立 GORM 的 UserRepository 實作
+// NewUserRepository 建�? GORM ??UserRepository 實�?
 func NewUserRepository(db *gorm.DB) UserRepository {
 	return &gormUserRepository{db: db}
 }
@@ -41,7 +41,7 @@ func (r *gormUserRepository) FindByID(ctx context.Context, id uuid.UUID) (*model
 		return nil, err
 	}
 
-	// 取得該使用者擁有的設備數量
+	// ?��?該使?�者�??��?設�??��?
 	var count int64
 	if err := r.db.WithContext(ctx).Table("devices").Where("owner_id = ?", id).Count(&count).Error; err != nil {
 		return nil, err

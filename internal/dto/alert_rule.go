@@ -4,10 +4,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/model"
 )
 
-// CreateAlertRuleReq 建立告警規則請求
+// CreateAlertRuleReq 建�??�警規�?請�?
 type CreateAlertRuleReq struct {
 	MetricName string  `json:"metric_name" binding:"required,min=1,max=100"`
 	Operator   string  `json:"operator" binding:"required,oneof=gt lt gte lte eq"`
@@ -16,7 +16,7 @@ type CreateAlertRuleReq struct {
 	IsEnabled  bool    `json:"is_enabled"`
 }
 
-// UpdateAlertRuleReq 更新告警規則請求
+// UpdateAlertRuleReq ?�新?�警規�?請�?
 type UpdateAlertRuleReq struct {
 	MetricName *string  `json:"metric_name" binding:"omitempty,min=1,max=100"`
 	Operator   *string  `json:"operator" binding:"omitempty,oneof=gt lt gte lte eq"`
@@ -25,7 +25,7 @@ type UpdateAlertRuleReq struct {
 	IsEnabled  *bool    `json:"is_enabled"`
 }
 
-// AlertRuleResp 告警規則回應 DTO
+// AlertRuleResp ?�警規�??��? DTO
 type AlertRuleResp struct {
 	ID         uuid.UUID `json:"id"`
 	DeviceID   uuid.UUID `json:"device_id"`
@@ -37,7 +37,7 @@ type AlertRuleResp struct {
 	CreatedAt  time.Time `json:"created_at"`
 }
 
-// ToAlertRuleResp 將 model.AlertRule 轉為 dto.AlertRuleResp
+// ToAlertRuleResp �?model.AlertRule 轉為 dto.AlertRuleResp
 func ToAlertRuleResp(rule *model.AlertRule) *AlertRuleResp {
 	if rule == nil {
 		return nil
@@ -54,7 +54,7 @@ func ToAlertRuleResp(rule *model.AlertRule) *AlertRuleResp {
 	}
 }
 
-// ToAlertRuleRespList 批量轉換
+// ToAlertRuleRespList ?��?轉�?
 func ToAlertRuleRespList(rules []*model.AlertRule) []*AlertRuleResp {
 	list := make([]*AlertRuleResp, len(rules))
 	for i, r := range rules {

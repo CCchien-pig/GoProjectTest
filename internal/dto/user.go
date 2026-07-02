@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/model"
 )
 
 // CreateUserReq 建立使用者請求
@@ -23,7 +23,7 @@ type UpdateUserReq struct {
 	IsActive *bool   `json:"is_active"`
 }
 
-// UserResp 使用者回應 DTO
+// UserResp 使用者回傳 DTO
 type UserResp struct {
 	ID          uuid.UUID `json:"id"`
 	Username    string    `json:"username"`

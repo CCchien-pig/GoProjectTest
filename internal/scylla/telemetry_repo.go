@@ -7,11 +7,11 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/model"
 )
 
-// TelemetryRepository 定義對 ScyllaDB telemetry 表的資料存取介面
+// TelemetryRepository 定義�?ScyllaDB telemetry 表�?資�?存�?介面
 type TelemetryRepository interface {
 	BatchInsert(ctx context.Context, deviceID uuid.UUID, points []dto.TelemetryPoint) error
 	Query(ctx context.Context, deviceID uuid.UUID, start, end time.Time, metricName string) ([]*model.TelemetryData, error)
@@ -23,7 +23,7 @@ type scyllaTelemetryRepository struct {
 	client *Client
 }
 
-// NewTelemetryRepository 建立 ScyllaDB 的 TelemetryRepository 實作
+// NewTelemetryRepository 建�? ScyllaDB ??TelemetryRepository 實�?
 func NewTelemetryRepository(client *Client) TelemetryRepository {
 	return &scyllaTelemetryRepository{client: client}
 }
@@ -95,7 +95,7 @@ func (r *scyllaTelemetryRepository) Query(ctx context.Context, deviceID uuid.UUI
 		}
 	}
 
-	// 降序排序 (newest first)
+	// ?��??��? (newest first)
 	for i := 0; i < len(result); i++ {
 		for j := i + 1; j < len(result); j++ {
 			if result[i].RecordedAt.Before(result[j].RecordedAt) {

@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// User 代表 users 資料表的 GORM 模型
+// User 對應 users 資料表的 GORM 模型
 type User struct {
 	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	Username     string    `gorm:"type:varchar(100);unique;not null" json:"username"`
@@ -18,7 +18,7 @@ type User struct {
 	CreatedAt    time.Time `gorm:"type:timestamptz;not null;default:now()" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"type:timestamptz;not null;default:now()" json:"updated_at"`
 
-	// 額外欄位：只用於回傳，不映射至 DB
+	// 額外欄位：只用於回傳，不對應 DB
 	DeviceCount int64 `gorm:"-" json:"device_count,omitempty"`
 }
 

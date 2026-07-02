@@ -7,10 +7,10 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/model"
 )
 
-// AlertEventRepository 定義對 ScyllaDB alert_events 表的資料存取介面
+// AlertEventRepository 定義�?ScyllaDB alert_events 表�?資�?存�?介面
 type AlertEventRepository interface {
 	Insert(ctx context.Context, event *model.AlertEvent) error
 	QueryByDevice(ctx context.Context, deviceID uuid.UUID, month string, severity string) ([]*model.AlertEvent, error)
@@ -21,7 +21,7 @@ type scyllaAlertEventRepository struct {
 	client *Client
 }
 
-// NewAlertEventRepository 建立 ScyllaDB 的 AlertEventRepository 實作
+// NewAlertEventRepository 建�? ScyllaDB ??AlertEventRepository 實�?
 func NewAlertEventRepository(client *Client) AlertEventRepository {
 	return &scyllaAlertEventRepository{client: client}
 }

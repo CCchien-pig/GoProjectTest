@@ -6,18 +6,18 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/model"
-	"github.com/your-name/udm/internal/repository"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/model"
+	"GoProject/udm/internal/repository"
 	"golang.org/x/crypto/bcrypt"
 )
 
 var (
-	// ErrUserNotFound 代表找不到使用者
+	// ErrUserNotFound 找不到使用者
 	ErrUserNotFound = errors.New("user not found")
-	// ErrUsernameDuplicate 代表使用者名稱重複
+	// ErrUsernameDuplicate 使用者名稱重複
 	ErrUsernameDuplicate = errors.New("username already exists")
-	// ErrEmailDuplicate 代表 Email 重複
+	// ErrEmailDuplicate Email 重複
 	ErrEmailDuplicate = errors.New("email already exists")
 )
 
@@ -33,7 +33,7 @@ type userService struct {
 	repo repository.UserRepository
 }
 
-// NewUserService 建立 UserService 實作
+// NewUserService 建立 UserService 實體
 func NewUserService(repo repository.UserRepository) UserService {
 	return &userService{repo: repo}
 }
@@ -57,7 +57,7 @@ func (s *userService) Create(ctx context.Context, req *dto.CreateUserReq) (*dto.
 		return nil, ErrEmailDuplicate
 	}
 
-	// 密碼加密
+	// 密碼雜湊
 	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, fmt.Errorf("hash password: %w", err)

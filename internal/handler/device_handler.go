@@ -6,9 +6,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/service"
-	"github.com/your-name/udm/pkg/response"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/service"
+	"GoProject/udm/pkg/response"
 )
 
 // DeviceHandler 處理設備相關 HTTP 請求
@@ -16,7 +16,7 @@ type DeviceHandler struct {
 	svc service.DeviceService
 }
 
-// NewDeviceHandler 建立 DeviceHandler 實作
+// NewDeviceHandler 建立 DeviceHandler 實體
 func NewDeviceHandler(svc service.DeviceService) *DeviceHandler {
 	return &DeviceHandler{svc: svc}
 }
@@ -42,7 +42,7 @@ func (h *DeviceHandler) Create(c *gin.Context) {
 	response.OK(c, resp)
 }
 
-// FindByID 取得設備詳細資訊
+// FindByID 查詢設備詳細資料
 func (h *DeviceHandler) FindByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
@@ -64,7 +64,7 @@ func (h *DeviceHandler) FindByID(c *gin.Context) {
 	response.OK(c, resp)
 }
 
-// Update 更新設備資訊
+// Update 更新設備資料
 func (h *DeviceHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
@@ -114,7 +114,7 @@ func (h *DeviceHandler) Delete(c *gin.Context) {
 	response.OK(c, "device deleted successfully")
 }
 
-// List 取得設備列表（支援 Cursor-based 分頁與模糊搜尋）
+// List 查詢設備列表（支援 Cursor-based 分頁與模糊搜尋）
 func (h *DeviceHandler) List(c *gin.Context) {
 	cursor := c.Query("cursor")
 	limitStr := c.Query("limit")

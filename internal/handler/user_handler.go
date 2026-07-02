@@ -5,9 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/service"
-	"github.com/your-name/udm/pkg/response"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/service"
+	"GoProject/udm/pkg/response"
 )
 
 // UserHandler 處理使用者相關 HTTP 請求
@@ -15,7 +15,7 @@ type UserHandler struct {
 	svc service.UserService
 }
 
-// NewUserHandler 建立 UserHandler 實作
+// NewUserHandler 建立 UserHandler 實體
 func NewUserHandler(svc service.UserService) *UserHandler {
 	return &UserHandler{svc: svc}
 }
@@ -41,7 +41,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 	response.OK(c, resp)
 }
 
-// FindByID 取得使用者資訊
+// FindByID 查詢使用者資料
 func (h *UserHandler) FindByID(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)
@@ -63,7 +63,7 @@ func (h *UserHandler) FindByID(c *gin.Context) {
 	response.OK(c, resp)
 }
 
-// Update 更新使用者資訊
+// Update 更新使用者資料
 func (h *UserHandler) Update(c *gin.Context) {
 	idStr := c.Param("id")
 	id, err := uuid.Parse(idStr)

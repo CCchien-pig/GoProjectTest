@@ -6,17 +6,17 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/dto"
-	"github.com/your-name/udm/internal/model"
-	"github.com/your-name/udm/internal/repository"
+	"GoProject/udm/internal/dto"
+	"GoProject/udm/internal/model"
+	"GoProject/udm/internal/repository"
 )
 
 var (
-	// ErrAlertRuleNotFound 代表找不到告警規則
+	// ErrAlertRuleNotFound 找不到告警規則錯誤
 	ErrAlertRuleNotFound = errors.New("alert rule not found")
-	// ErrInvalidOperator 代表不合法的運算子
+	// ErrInvalidOperator 無效的操作符
 	ErrInvalidOperator = errors.New("invalid operator, must be gt, lt, gte, lte, eq")
-	// ErrInvalidSeverity 代表不合法的嚴重等級
+	// ErrInvalidSeverity 無效的嚴重等級
 	ErrInvalidSeverity = errors.New("invalid severity, must be info, warning, critical")
 )
 
@@ -33,7 +33,7 @@ type alertRuleService struct {
 	deviceRepo repository.DeviceRepository
 }
 
-// NewAlertRuleService 建立 AlertRuleService 實作
+// NewAlertRuleService 建立 AlertRuleService 實體
 func NewAlertRuleService(repo repository.AlertRuleRepository, deviceRepo repository.DeviceRepository) AlertRuleService {
 	return &alertRuleService{
 		repo:       repo,
@@ -51,7 +51,7 @@ func (s *alertRuleService) Create(ctx context.Context, deviceID uuid.UUID, req *
 		return nil, ErrDeviceNotFound
 	}
 
-	// 驗證運算子
+	// 驗證操作符
 	if !isValidOperator(req.Operator) {
 		return nil, ErrInvalidOperator
 	}

@@ -5,11 +5,11 @@ import (
 	"errors"
 
 	"github.com/google/uuid"
-	"github.com/your-name/udm/internal/model"
+	"GoProject/udm/internal/model"
 	"gorm.io/gorm"
 )
 
-// AlertRuleRepository 定義對 alert_rules 資料表的資料存取介面
+// AlertRuleRepository 定義�?alert_rules 資�?表�?資�?存�?介面
 type AlertRuleRepository interface {
 	Create(ctx context.Context, rule *model.AlertRule) error
 	FindByID(ctx context.Context, id uuid.UUID) (*model.AlertRule, error)
@@ -22,7 +22,7 @@ type gormAlertRuleRepository struct {
 	db *gorm.DB
 }
 
-// NewAlertRuleRepository 建立 GORM 的 AlertRuleRepository 實作
+// NewAlertRuleRepository 建�? GORM ??AlertRuleRepository 實�?
 func NewAlertRuleRepository(db *gorm.DB) AlertRuleRepository {
 	return &gormAlertRuleRepository{db: db}
 }

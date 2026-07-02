@@ -7,7 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// Device 代表 devices 資料表的 GORM 模型
+// Device 對應 devices 資料表的 GORM 模型
 type Device struct {
 	ID         uuid.UUID              `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	DeviceCode string                 `gorm:"type:varchar(50);unique;not null;column:device_code" json:"device_code"`
