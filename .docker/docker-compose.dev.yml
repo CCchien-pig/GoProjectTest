@@ -89,7 +89,7 @@ services:
         echo "Creating ScyllaDB keyspace: ${SCYLLA_KEYSPACE}"
         cqlsh scylladb 9042 -e "
           CREATE KEYSPACE IF NOT EXISTS ${SCYLLA_KEYSPACE}
-          WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}
+          WITH replication = {'class': 'NetworkTopologyStrategy', 'datacenter1': 1}
           AND durable_writes = true;
         "
         echo "ScyllaDB keyspace '${SCYLLA_KEYSPACE}' ready!"

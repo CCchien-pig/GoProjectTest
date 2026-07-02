@@ -52,10 +52,10 @@ func (c *Client) Close() {
 
 // EnsureSchema 確保 keyspace 和 table 存在
 func (c *Client) EnsureSchema(keyspace string) error {
-	// 建立 keyspace (SimpleStrategy 在本地開發最適合)
+	// 建立 keyspace (採用NetworkTopologyStrategy)
 	err := c.Session.Query(fmt.Sprintf(`
 		CREATE KEYSPACE IF NOT EXISTS %s
-		WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1}
+		WITH replication = {'class': 'NetworkTopologyStrategy', 'datacenter1': 1}
 	`, keyspace)).Exec()
 	if err != nil {
 		return err
