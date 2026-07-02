@@ -1,4 +1,151 @@
 package service
 
-// internal/service/user_service.go
-// TODO: Day 3 實作（bcrypt 密碼雜湊）
+import (
+	"context"
+	"errors"
+	"fmt"
+
+	"github.com/google/uuid"
+	"github.com/your-name/udm/internal/dto"
+	"github.com/your-name/udm/internal/model"
+	"github.com/your-name/udm/internal/repository"
+	"golang.org/x/crypto/bcrypt"
+)
+
+var (
+	// ErrUserNotFound 代表找不到使用者
+	ErrUserNotFound = errors.New("user not found")
+	// ErrUsernameDuplicate 代表使用者名稱重複
+	ErrUsernameDuplicate = errors.New("username already exists")
+	// ErrEmailDuplicate 代表 Email 重複
+	ErrEmailDuplicate = errors.New("email already exists")
+)
+
+// UserService 定義使用者業務邏輯介面
+type UserService interface {
+	Create(ctx context.Context, req *dto.CreateUserReq) (*dto.UserResp, error)
+	FindByID(ctx context.Context, id uuid.UUID) (*dto.UserResp, error)
+	Update(ctx context.Context, id uuid.UUID, req *dto.UpdateUserReq) (*dto.UserResp, error)
+	SoftDelete(ctx context.Context, id uuid.UUID) error
+}
+
+type userService struct {
+	repo repository.UserRepository
+}
+
+// NewUserService 建立 UserService 實作
+func NewUserService(repo repository.UserRepository) UserService {
+	return &userService{repo: repo}
+}
+
+func (s *userService) Create(ctx context.Context, req *dto.CreateUserReq) (*dto.UserResp, error) {
+	// 檢查 Username
+	existingUsername, err := s.repo.FindByUsername(ctx, req.Username)
+	if err != nil {
+		return nil, fmt.Errorf("find by username: %w", err)
+	}
+	if existingUsername != nil {
+		return nil, ErrUsernameDuplicate
+	}
+
+	// 檢查 Email
+	existingEmail, err := s.repo.FindByEmail(ctx, req.Email)
+	if err != nil {
+		return nil, fmt.Errorf("find by email: %w", err)
+	}
+	if existingEmail != nil {
+		return nil, ErrEmailDuplicate
+	}
+
+	// 密碼加密
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, fmt.Errorf("hash password: %w", err)
+	}
+
+	user := &model.User{
+		Username:     req.Username,
+		Email:        req.Email,
+		PasswordHash: string(hashed),
+		Role:         req.Role,
+		IsActive:     true,
+	}
+
+	if err := s.repo.Create(ctx, user); err != nil {
+		return nil, fmt.Errorf("create user: %w", err)
+	}
+
+	return dto.ToUserResp(user), nil
+}
+
+func (s *userService) FindByID(ctx context.Context, id uuid.UUID) (*dto.UserResp, error) {
+	user, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("find user: %w", err)
+	}
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+	return dto.ToUserResp(user), nil
+}
+
+func (s *userService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateUserReq) (*dto.UserResp, error) {
+	user, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("find user: %w", err)
+	}
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+
+	if req.Username != nil {
+		existing, err := s.repo.FindByUsername(ctx, *req.Username)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil && existing.ID != id {
+			return nil, ErrUsernameDuplicate
+		}
+		user.Username = *req.Username
+	}
+
+	if req.Email != nil {
+		existing, err := s.repo.FindByEmail(ctx, *req.Email)
+		if err != nil {
+			return nil, err
+		}
+		if existing != nil && existing.ID != id {
+			return nil, ErrEmailDuplicate
+		}
+		user.Email = *req.Email
+	}
+
+	if req.Role != nil {
+		user.Role = *req.Role
+	}
+
+	if req.IsActive != nil {
+		user.IsActive = *req.IsActive
+	}
+
+	if err := s.repo.Update(ctx, user); err != nil {
+		return nil, fmt.Errorf("update user: %w", err)
+	}
+
+	return dto.ToUserResp(user), nil
+}
+
+func (s *userService) SoftDelete(ctx context.Context, id uuid.UUID) error {
+	user, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if user == nil {
+		return ErrUserNotFound
+	}
+
+	if err := s.repo.SoftDelete(ctx, id); err != nil {
+		return fmt.Errorf("soft delete user: %w", err)
+	}
+	return nil
+}

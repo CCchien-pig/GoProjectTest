@@ -1,0 +1,50 @@
+# Week 1 & 2 Task List
+
+- `[x]` **Week 1 - Day 1: Base Infrastructure**
+  - `[x]` `internal/config/config.go`: Write test for environment loading -> Implement minimal viable logic -> Complete config loading using `godotenv`
+  - `[x]` `pkg/response/response.go`: Write test for JSON response structure -> Implement minimal helpers -> Complete response wrappers (`OK`, `BadRequest`, etc.)
+  - `[x]` `internal/middleware/trace.go`: Write test for request ID tracing -> Implement minimal middleware -> Complete `TraceID` middleware injecting `X-Request-ID`
+- `[/]` **Week 1 - Day 2: PostgreSQL Schema & Migrations**
+  - `[/]` Create PostgreSQL migration SQL scripts under `migrations/`
+    - `[x]` `000001_create_users.up.sql`
+    - `[x]` `000002_create_devices.up.sql`
+    - `[x]` `000003_create_alert_rules.up.sql`
+    - `[x]` `000004_add_indexes.up.sql` (Add `pg_trgm` extension and GIN indexes)
+  - `[ ]` Spin up containers using `docker compose` and verify connection
+- `[x]` **Week 1 - Day 3: Users CRUD & GORM (TDD)**
+  - `[x]` Define User GORM model in `internal/model/user.go`
+  - `[x]` Implement User Repository (Interface & GORM Repo) + integration tests
+  - `[x]` Implement User Service (password hashing using `bcrypt`) + unit tests
+  - `[x]` Implement User Handlers + routing endpoints + unit tests
+- `[x]` **Week 1 - Day 4: Devices CRUD + Cursor Pagination + pg_trgm Search (TDD)**
+  - `[x]` Define Device GORM model in `internal/model/device.go`
+  - `[x]` Implement Device Repository + integration tests
+    - `[x]` Cursor-based pagination logic (by `created_at` and `id`)
+    - `[x]` pg_trgm ILIKE filter search logic
+  - `[x]` Implement Device Service + unit tests
+  - `[x]` Implement Device Handlers + routing endpoints + unit tests
+- `[x]` **Week 1 - Day 5: Alert Rules CRUD & updated_at Auto Update (TDD)**
+  - `[x]` Define Alert Rule GORM model in `internal/model/alert_rule.go`
+  - `[x]` Implement Alert Rule Repository + integration tests
+  - `[x]` Implement Alert Rule Service with validations (operators, severities) + unit tests
+  - `[x]` Implement Alert Rule Handlers + routing endpoints + unit tests
+  - `[x]` Implement GORM `BeforeUpdate` hook for automated `updated_at` timestamps
+  - `[x]` Validate CRUD flows using Postman
+- `[x]` **Week 2 - Day 6: ScyllaDB Connection & Schema Setup**
+  - `[x]` Implement `internal/scylla/client.go` with gocql configuration
+  - `[x]` Implement `EnsureSchema()` creating tables `telemetry` (TTL 90d) and `alert_events` (TTL 365d)
+  - `[x]` Inject ScyllaDB client in `main.go` and wire dependency injection
+- `[x]` **Week 2 - Day 7: Telemetry Ingestion (Batch Ingest + Alert Trigger) (TDD)**
+  - `[x]` Implement `internal/scylla/telemetry_repo.go` `BatchInsert` (max 100 points) + tests
+  - `[x]` Implement Telemetry Service checking PostgreSQL rules and triggering `alert_events` in ScyllaDB + unit tests
+  - `[x]` Implement Telemetry Ingestion API endpoint handler + unit tests
+- `[x]` **Week 2 - Day 8: Telemetry Queries (Multi-Day Partitioning & Deleted Filter) (TDD)**
+  - `[x]` Implement range query calculating days between `start`/`end` and querying partitions + tests
+  - `[x]` Implement check to return `is_deleted: true` status if queried device was deleted in Postgres + tests
+  - `[x]` Implement Range query & delete telemetry handlers + tests
+- `[x]` **Week 2 - Day 9: Alert Events Operations & Device Detail Expansion (TDD)**
+  - `[x]` Implement ScyllaDB Alert Events Repository (CRUD + ACK actions) + tests
+  - `[x]` Implement Alert Event handlers (`GET /devices/:id/alert-events`, `PUT /alert-events/.../ack`) + tests
+  - `[x]` Expand `GET /api/v1/devices/:id` to fetch and embed latest telemetry from ScyllaDB
+- `[x]` **Week 2 - Day 10: Integration & Wiring**
+  - `[x]` Wire routes.go and main.go for all features, run comprehensive integration test suite

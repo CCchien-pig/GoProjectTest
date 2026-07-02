@@ -248,4 +248,33 @@ Consumer（訊息接收方）
 
 ---
 
+### [2026/07/02] — ScyllaDB 跨分區時間範圍查詢設計
+
+**關鍵字 / Prompt**：
+> "Cassandra ScyllaDB query telemetry time range across multiple date partitions, partition key daily bucket"
+
+**獲得的關鍵洞見**：
+- 在 `((device_id, date), recorded_at, metric_name)` 的複合主鍵設計下，不指定 `date` 進行時間範圍查詢會導致嚴重的分區全表掃描（Scan Penalty）。
+- 正確做法是在服務層計算出查詢範圍內包含的所有日期分區，依序（或併行）向 ScyllaDB 發起單分區範圍查詢 `date = ? AND recorded_at >= ?`，再於記憶體中進行合併與排序。
+
+**後續驗證**：
+- 實作 `TelemetryRepository.Query` 計算 `startDate` 到 `endDate`，逐日查詢並合併排序，單元測試通過。
+
+---
+
+### [2026/07/02] — 高可用架構設計：降級與容錯處理 (Degraded Mode)
+
+**關鍵字 / Prompt**：
+> "IoT backend high availability, postgresql online but scylla redis offline graceful degradation handler"
+
+**獲得的關鍵洞見**：
+- IoT 平台在時序資料庫（ScyllaDB）或快取（KeyDB）離線時，整個伺服器不應崩潰。
+- 在 `main.go` 連線階段進行容錯處理（Catch Connection Errors），若 ScyllaDB / KeyDB 連線失敗，服務以 Degraded Mode（降級模式）啟動。
+- 遙測資料寫入與查詢 API 在時序庫斷線時回傳 `503 Service Unavailable`，但基本的設備與使用者 CRUD（依賴 PostgreSQL）仍維持 100% 正常運作。
+
+**後續驗證**：
+- 在 `TelemetryService` 實作時，若 Repository 實作為 `nil` 則直接回傳離線錯誤，並在 `TelemetryHandler` 中統一映射為 503 狀態碼。
+
+---
+
 *此文件持續更新，每次使用 AI 解決重要技術問題後，於當日補充一筆紀錄。*
