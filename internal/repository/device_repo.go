@@ -21,7 +21,7 @@ type DeviceRepository interface {
 	Update(ctx context.Context, device *model.Device) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, cursor string, limit int, deviceType, status, location, search string) ([]*model.Device, string, error)
-	ReplaceUsers(ctx context.Context, device *model.Device, users []model.User) error
+	UpdateWithUsers(ctx context.Context, device *model.Device, users []model.User) error
 }
 
 type gormDeviceRepository struct {
@@ -39,7 +39,7 @@ func (r *gormDeviceRepository) Create(ctx context.Context, device *model.Device)
 
 func (r *gormDeviceRepository) FindByID(ctx context.Context, id uuid.UUID) (*model.Device, error) {
 	var device model.Device
-	if err := r.db.WithContext(ctx).Preload("Users.Role.Permissions").Preload("Users").First(&device, "id = ?", id).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Users.Role.Permissions").First(&device, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -68,7 +68,7 @@ func (r *gormDeviceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *gormDeviceRepository) List(ctx context.Context, cursor string, limit int, deviceType, status, location, search string) ([]*model.Device, string, error) {
-	query := r.db.WithContext(ctx).Model(&model.Device{}).Preload("Users.Role.Permissions").Preload("Users")
+	query := r.db.WithContext(ctx).Model(&model.Device{}).Preload("Users.Role.Permissions")
 
 	// 篩選過濾
 	if deviceType != "" {
@@ -89,10 +89,11 @@ func (r *gormDeviceRepository) List(ctx context.Context, cursor string, limit in
 	// 套用 Cursor-based 分頁 (預設排序：依建立時間降冪)
 	if cursor != "" {
 		cursorTime, cursorID, err := decodeCursor(cursor)
-		if err == nil {
-			// 在 PostgreSQL 中，可以使用 Tuple 比較 (created_at, id) < (cursorTime, cursorID)
-			query = query.Where("(created_at, id) < (?, ?)", cursorTime, cursorID)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid cursor: %w", err)
 		}
+		// 在 PostgreSQL 中，可以使用 Tuple 比較 (created_at, id) < (cursorTime, cursorID)
+		query = query.Where("(created_at, id) < (?, ?)", cursorTime, cursorID)
 	}
 
 	// 排序並限制取回筆數 (多查一筆以確認有無下一頁)
@@ -113,8 +114,16 @@ func (r *gormDeviceRepository) List(ctx context.Context, cursor string, limit in
 	return devices, nextCursor, nil
 }
 
-func (r *gormDeviceRepository) ReplaceUsers(ctx context.Context, device *model.Device, users []model.User) error {
-	return r.db.WithContext(ctx).Model(device).Association("Users").Replace(users)
+func (r *gormDeviceRepository) UpdateWithUsers(ctx context.Context, device *model.Device, users []model.User) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(device).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(device).Association("Users").Replace(users); err != nil {
+			return err
+		}
+		return nil
+	})
 }
 
 // Cursor 編解碼輔助函數

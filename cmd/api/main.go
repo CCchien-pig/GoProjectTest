@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -57,7 +58,8 @@ func main() {
 	var telemetryRepo scylla.TelemetryRepository
 	var alertEventRepo scylla.AlertEventRepository
 
-	scyllaClient, err = scylla.NewClient([]string{cfg.ScyllaHosts}, cfg.ScyllaKeyspace)
+	hosts := strings.Split(cfg.ScyllaHosts, ",")
+	scyllaClient, err = scylla.NewClient(hosts, cfg.ScyllaKeyspace)
 	if err != nil {
 		log.Printf("ScyllaDB connection failed: %v. Ingestions will run in degraded mode.\n", err)
 	} else {

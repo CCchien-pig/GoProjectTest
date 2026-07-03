@@ -13,6 +13,7 @@ import (
 type UserRepository interface {
 	Create(ctx context.Context, user *model.User) error
 	FindByID(ctx context.Context, id uuid.UUID) (*model.User, error)
+	FindByIDs(ctx context.Context, ids []uuid.UUID) ([]*model.User, error)
 	FindByUsername(ctx context.Context, username string) (*model.User, error)
 	FindByEmail(ctx context.Context, email string) (*model.User, error)
 	Update(ctx context.Context, user *model.User) error
@@ -49,6 +50,14 @@ func (r *gormUserRepository) FindByID(ctx context.Context, id uuid.UUID) (*model
 	user.DeviceCount = count
 
 	return &user, nil
+}
+
+func (r *gormUserRepository) FindByIDs(ctx context.Context, ids []uuid.UUID) ([]*model.User, error) {
+	var users []*model.User
+	if err := r.db.WithContext(ctx).Where("id IN ?", ids).Find(&users).Error; err != nil {
+		return nil, err
+	}
+	return users, nil
 }
 
 func (r *gormUserRepository) FindByUsername(ctx context.Context, username string) (*model.User, error) {

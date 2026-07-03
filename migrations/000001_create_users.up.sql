@@ -3,14 +3,16 @@ CREATE TABLE IF NOT EXISTS roles (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name          VARCHAR(50) UNIQUE NOT NULL,
     description   VARCHAR(200),
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS permissions (
     id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name          VARCHAR(50) UNIQUE NOT NULL,
     description   VARCHAR(200),
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS role_permissions (
@@ -24,7 +26,7 @@ CREATE TABLE IF NOT EXISTS users (
     username      VARCHAR(100) UNIQUE NOT NULL,
     email         VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
-    role_id       UUID REFERENCES roles(id) ON DELETE SET NULL,
+    role_id       UUID NOT NULL REFERENCES roles(id),
     is_active     BOOLEAN NOT NULL DEFAULT true,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()

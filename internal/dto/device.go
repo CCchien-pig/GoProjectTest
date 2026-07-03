@@ -42,7 +42,7 @@ type DeviceResp struct {
 	Users      []*UserResp            `json:"users,omitempty"`
 
 	// ScyllaDB 遙測欄位（Week 2 新增）
-	LatestTelemetry interface{} `json:"latest_telemetry,omitempty"`
+	LatestTelemetry []*model.TelemetryData `json:"latest_telemetry,omitempty"`
 }
 
 // ToDeviceResp 將 model.Device 轉為 dto.DeviceResp

@@ -3,6 +3,7 @@ package scylla
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/gocql/gocql"
@@ -95,14 +96,10 @@ func (r *scyllaTelemetryRepository) Query(ctx context.Context, deviceID uuid.UUI
 		}
 	}
 
-	// ?��??��? (newest first)
-	for i := 0; i < len(result); i++ {
-		for j := i + 1; j < len(result); j++ {
-			if result[i].RecordedAt.Before(result[j].RecordedAt) {
-				result[i], result[j] = result[j], result[i]
-			}
-		}
-	}
+	// 排序 (newest first)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].RecordedAt.After(result[j].RecordedAt)
+	})
 
 	return result, nil
 }

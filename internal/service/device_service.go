@@ -56,14 +56,14 @@ func (s *deviceService) Create(ctx context.Context, req *dto.CreateDeviceReq) (*
 	// 檢查 Users
 	var usersToBind []model.User
 	if len(req.UserIDs) > 0 {
-		for _, uid := range req.UserIDs {
-			u, err := s.userRepo.FindByID(ctx, uid)
-			if err != nil {
-				return nil, fmt.Errorf("find user %s: %w", uid, err)
-			}
-			if u == nil {
-				return nil, ErrUserNotFound
-			}
+		users, err := s.userRepo.FindByIDs(ctx, req.UserIDs)
+		if err != nil {
+			return nil, fmt.Errorf("find users: %w", err)
+		}
+		if len(users) != len(req.UserIDs) {
+			return nil, ErrUserNotFound
+		}
+		for _, u := range users {
 			usersToBind = append(usersToBind, *u)
 		}
 	}
@@ -89,11 +89,7 @@ func (s *deviceService) Create(ctx context.Context, req *dto.CreateDeviceReq) (*
 
 	// 若有設定 Users，重新 Preload 取得完整的 Users 資料
 	if len(req.UserIDs) > 0 {
-		reloaded, reloadErr := s.repo.FindByID(ctx, device.ID)
-		if reloadErr != nil {
-			return nil, fmt.Errorf("reload device after create: %w", reloadErr)
-		}
-		if reloaded != nil {
+		if reloaded, reloadErr := s.repo.FindByID(ctx, device.ID); reloadErr == nil && reloaded != nil {
 			device = reloaded
 		}
 	}
@@ -148,36 +144,34 @@ func (s *deviceService) Update(ctx context.Context, id uuid.UUID, req *dto.Updat
 		device.Status = *req.Status
 	}
 
-	if err := s.repo.Update(ctx, device); err != nil {
-		return nil, fmt.Errorf("update device: %w", err)
-	}
-
 	// 處理關聯的 Users 更新
+	// req.UserIDs 語意: nil 代表不異動, [] 代表清空所有綁定, ["uuid1"] 代表取代所有綁定
 	if req.UserIDs != nil {
 		var usersToBind []model.User
 		if len(req.UserIDs) > 0 {
-			for _, uid := range req.UserIDs {
-				u, err := s.userRepo.FindByID(ctx, uid)
-				if err != nil {
-					return nil, fmt.Errorf("find user %s: %w", uid, err)
-				}
-				if u == nil {
-					return nil, ErrUserNotFound
-				}
+			users, err := s.userRepo.FindByIDs(ctx, req.UserIDs)
+			if err != nil {
+				return nil, fmt.Errorf("find users: %w", err)
+			}
+			if len(users) != len(req.UserIDs) {
+				return nil, ErrUserNotFound
+			}
+			for _, u := range users {
 				usersToBind = append(usersToBind, *u)
 			}
 		}
-		if err := s.repo.ReplaceUsers(ctx, device, usersToBind); err != nil {
-			return nil, fmt.Errorf("replace device users: %w", err)
+		
+		if err := s.repo.UpdateWithUsers(ctx, device, usersToBind); err != nil {
+			return nil, fmt.Errorf("update device with users: %w", err)
+		}
+	} else {
+		if err := s.repo.Update(ctx, device); err != nil {
+			return nil, fmt.Errorf("update device: %w", err)
 		}
 	}
 
 	// 重新 Preload 取得 Users 關聯資料
-	reloaded, reloadErr := s.repo.FindByID(ctx, device.ID)
-	if reloadErr != nil {
-		return nil, fmt.Errorf("reload device after update: %w", reloadErr)
-	}
-	if reloaded != nil {
+	if reloaded, reloadErr := s.repo.FindByID(ctx, device.ID); reloadErr == nil && reloaded != nil {
 		device = reloaded
 	}
 
@@ -187,7 +181,7 @@ func (s *deviceService) Update(ctx context.Context, id uuid.UUID, req *dto.Updat
 func (s *deviceService) Delete(ctx context.Context, id uuid.UUID) error {
 	device, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("find device for delete: %w", err)
 	}
 	if device == nil {
 		return ErrDeviceNotFound

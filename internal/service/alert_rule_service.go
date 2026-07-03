@@ -135,7 +135,7 @@ func (s *alertRuleService) Update(ctx context.Context, id uuid.UUID, req *dto.Up
 func (s *alertRuleService) Delete(ctx context.Context, id uuid.UUID) error {
 	rule, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("find alert rule for delete: %w", err)
 	}
 	if rule == nil {
 		return ErrAlertRuleNotFound

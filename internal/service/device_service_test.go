@@ -64,6 +64,12 @@ func (m *mockDeviceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+func (m *mockDeviceRepository) UpdateWithUsers(ctx context.Context, device *model.Device, users []model.User) error {
+	m.devices[device.ID] = device
+	m.devicesByCode[device.DeviceCode] = device
+	return nil
+}
+
 func (m *mockDeviceRepository) List(ctx context.Context, cursor string, limit int, dt, st, loc, q string) ([]*model.Device, string, error) {
 	if m.onList != nil {
 		return m.onList(cursor, limit, dt, st, loc, q)
@@ -88,7 +94,7 @@ func TestDeviceService_Create(t *testing.T) {
 		Name:       "Test Device",
 		DeviceType: "sensor",
 		Location:   "TPE",
-		OwnerID:    &u.ID,
+		UserIDs:    []uuid.UUID{u.ID},
 		Status:     "active",
 	}
 
@@ -101,16 +107,16 @@ func TestDeviceService_Create(t *testing.T) {
 		t.Errorf("unexpected device response: %+v", resp)
 	}
 
-	// ?��?編�?
+	// ??編?
 	_, err = svc.Create(context.Background(), req)
 	if err == nil || err != ErrDeviceCodeDuplicate {
 		t.Errorf("expected ErrDeviceCodeDuplicate, got %v", err)
 	}
 
-	// ?��? Owner
+	// ?? Owner
 	fakeID := uuid.New()
 	req.DeviceCode = "DEV-002"
-	req.OwnerID = &fakeID
+	req.UserIDs = []uuid.UUID{fakeID}
 	_, err = svc.Create(context.Background(), req)
 	if err == nil || err != ErrUserNotFound {
 		t.Errorf("expected ErrUserNotFound, got %v", err)

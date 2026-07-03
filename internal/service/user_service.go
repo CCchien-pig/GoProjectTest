@@ -150,7 +150,7 @@ func (s *userService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateU
 func (s *userService) SoftDelete(ctx context.Context, id uuid.UUID) error {
 	user, err := s.repo.FindByID(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("find user for delete: %w", err)
 	}
 	if user == nil {
 		return ErrUserNotFound

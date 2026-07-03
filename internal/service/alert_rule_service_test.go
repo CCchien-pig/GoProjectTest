@@ -101,19 +101,20 @@ func TestAlertRuleService_Create(t *testing.T) {
 		t.Errorf("unexpected rule response: %+v", resp)
 	}
 
-	// ?��?設�?
+	// ??設?
 	_, err = svc.Create(context.Background(), uuid.New(), req)
 	if err == nil || err != ErrDeviceNotFound {
 		t.Errorf("expected ErrDeviceNotFound, got %v", err)
 	}
 
-	// ?��??��?�?	req.Operator = "invalid"
+	// 測試無效的操作符
+	req.Operator = "invalid"
 	_, err = svc.Create(context.Background(), dev.ID, req)
 	if err == nil || err != ErrInvalidOperator {
 		t.Errorf("expected ErrInvalidOperator, got %v", err)
 	}
 
-	// ?��??��?等�?
+	// ????等?
 	req.Operator = "gt"
 	req.Severity = "epic"
 	_, err = svc.Create(context.Background(), dev.ID, req)

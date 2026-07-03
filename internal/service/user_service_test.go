@@ -53,6 +53,16 @@ func (m *mockUserRepository) FindByEmail(ctx context.Context, email string) (*mo
 	return m.usersByEmail[email], nil
 }
 
+func (m *mockUserRepository) FindByIDs(ctx context.Context, ids []uuid.UUID) ([]*model.User, error) {
+	var list []*model.User
+	for _, id := range ids {
+		if u, ok := m.users[id]; ok {
+			list = append(list, u)
+		}
+	}
+	return list, nil
+}
+
 func (m *mockUserRepository) Update(ctx context.Context, user *model.User) error {
 	if m.onUpdate != nil {
 		return m.onUpdate(user)
@@ -81,7 +91,7 @@ func TestUserService_Create(t *testing.T) {
 		Username: "testuser",
 		Email:    "test@example.com",
 		Password: "password123",
-		Role:     "viewer",
+		RoleID:   uuid.New(),
 	}
 
 	resp, err := svc.Create(context.Background(), req)
@@ -89,7 +99,7 @@ func TestUserService_Create(t *testing.T) {
 		t.Fatalf("failed to create user: %v", err)
 	}
 
-	if resp.Username != "testuser" || resp.Email != "test@example.com" || resp.Role != "viewer" || !resp.IsActive {
+	if resp.Username != "testuser" || resp.Email != "test@example.com" || !resp.IsActive {
 		t.Errorf("unexpected user response: %+v", resp)
 	}
 
@@ -104,7 +114,7 @@ func TestUserService_Create(t *testing.T) {
 		Username: "another",
 		Email:    "test@example.com",
 		Password: "password",
-		Role:     "viewer",
+		RoleID:   uuid.New(),
 	}
 	_, err = svc.Create(context.Background(), req2)
 	if err == nil || err != ErrEmailDuplicate {
@@ -120,7 +130,7 @@ func TestUserService_FindByID(t *testing.T) {
 		Username: "findme",
 		Email:    "findme@example.com",
 		Password: "password",
-		Role:     "operator",
+		RoleID:   uuid.New(),
 	}
 	created, _ := svc.Create(context.Background(), req)
 

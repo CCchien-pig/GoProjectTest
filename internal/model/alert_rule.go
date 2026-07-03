@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 // AlertRule �?�� alert_rules 資�?表�? GORM 模�?
@@ -16,6 +17,7 @@ type AlertRule struct {
 	Severity   string    `gorm:"type:varchar(20);not null;default:'warning'" json:"severity"` // info / warning / critical
 	IsEnabled  bool      `gorm:"type:boolean;column:is_enabled;not null;default:true" json:"is_enabled"`
 	CreatedAt  time.Time `gorm:"type:timestamptz;not null;default:now()" json:"created_at"`
+	UpdatedAt  time.Time `gorm:"type:timestamptz;not null;default:now()" json:"updated_at"`
 
 	// 關聯
 	Device *Device `gorm:"foreignKey:DeviceID" json:"device,omitempty"`
@@ -24,4 +26,10 @@ type AlertRule struct {
 // TableName 指定資料表名稱
 func (AlertRule) TableName() string {
 	return "alert_rules"
+}
+
+// BeforeUpdate GORM Hook
+func (r *AlertRule) BeforeUpdate(tx *gorm.DB) (err error) {
+	r.UpdatedAt = time.Now()
+	return
 }

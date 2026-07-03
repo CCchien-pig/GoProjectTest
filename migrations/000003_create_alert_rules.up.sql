@@ -7,5 +7,6 @@ CREATE TABLE IF NOT EXISTS alert_rules (
     threshold     DOUBLE PRECISION NOT NULL,
     severity      VARCHAR(20) NOT NULL DEFAULT 'warning', -- info / warning / critical
     is_enabled    BOOLEAN NOT NULL DEFAULT true,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );

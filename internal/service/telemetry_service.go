@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/google/uuid"
@@ -98,7 +99,7 @@ func (s *telemetryService) BatchInsert(ctx context.Context, deviceID uuid.UUID, 
 					if s.alertRepo != nil {
 						if err := s.alertRepo.Insert(ctx, event); err != nil {
 							// 記錄 log，不因告警寫入失敗而讓主要 API 崩潰
-							fmt.Printf("failed to insert alert event: %v\n", err)
+							log.Printf("failed to insert alert event: %v\n", err)
 						}
 					}
 				}
