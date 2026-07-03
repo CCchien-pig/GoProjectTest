@@ -205,7 +205,7 @@
 
 **4. 專案骨架初始化**
 
-- 完成 Go Module 初始化 (`github.com/your-name/udm`)。
+- 完成 Go Module 初始化 (`GoProject/udm`)。
 - 建立符合 USCII 規範的分層目錄結構 (`cmd/api`, `internal/handler`, `internal/service`, `internal/repository` 等)。
 - 建立各層級的 Placeholder 原始碼檔案，準備進入後續業務邏輯開發。
 
@@ -214,13 +214,17 @@
 ## 十一、架構師考核標準對齊 (2026/07/01)
 
 ### 考核標準轉向：從「實作成果」到「SA 觀念與過程」
+
 收到架構師最新指示，考核重點不僅在程式碼寫不寫得出來，更在於**為什麼這樣設計**以及**如何善用工具**：
+
 1. **SA 思維的關鍵字能力**：能下對關鍵字讓 AI 處理 80% 的繁瑣工作。
 2. **設計觀念的辯證**：必須清楚三個 DB 的特性與適用場景（能列舉多種 KeyDB 使用案例並回答「還有呢？」）。
 3. **架構視野**：了解 API 規劃哲學、前後端分離界線，以及 Vue 和 RabbitMQ 的核心概念。
 
 ### 應對策略：建立 SA_Strategy.md
+
 針對上述要求，於 `.docs/SA_Strategy.md` 建立專屬文件作為應考的「大腦」，內容涵蓋：
+
 - **DB 選型設計理由**：詳列 PostgreSQL, ScyllaDB (含 Partition Key 設計防禦), KeyDB (列出 8 種應用場景與 TTL) 的適用性。
 - **前後端切分與其他概念**：以 SA 視角釐清邏輯切分標準（權限/分頁必放後端），並速覽 Vue 與 RabbitMQ 核心概念。
 - **AI 使用關鍵字紀錄**：建立 Prompt 紀錄表，留下精確的技術英文 Prompt、獲得的洞見與後續驗證方式，作為「善用 AI 工具」的直接證據。
@@ -232,11 +236,13 @@
 完成了 Week 1 與 Week 2 計畫的所有內容，全程遵循「先寫測試、再寫代碼、測試通過、完善優化」的輕量級 TDD 開發流程，代碼全部成功編譯且單元與整合測試 100% 通過。
 
 ### 1. PostgreSQL 設備主檔 CRUD 與進階搜尋 (Week 1)
+
 - **基礎設施**：載入 `.env.dev` 動態設定、 Trace ID 中介層與 RESTful 統一 JSON 回傳格式。
 - **Cursor 游標分頁**：設備查詢 API 實作以 `(created_at, id)` 雙欄位游標分頁以保證大數據下的 O(1) 效能。
 - **模糊搜尋與自動更新**：透過 PostgreSQL GIN 索引與 pg_trgm 運算子實作高效模糊搜尋，並透過 GORM `BeforeUpdate` hook 自動更新修改時間。
 
 ### 2. ScyllaDB 遙測數據與告警觸發 (Week 2)
+
 - **時序資料庫 Schema**：建立 `telemetry` (TTL 90 天) 與 `alert_events` (TTL 365 天) 資料表，並封裝 ScyllaDB Client。
 - **告警評估與觸發**：批次遙測上傳時，自動拉取 GORM 設備的告警規則比對閥值，若觸發則自動寫入 ScyllaDB `alert_events` 表。
 - **日分區跨天查詢**：考量 Scan Penalty，在 Repository 實作中自動拆分查詢日期，個別發起 partition-key 查詢並在記憶體中進行高性能排序。
@@ -244,6 +250,7 @@
 - **整合布線與測試**：實作 `routes.go` 與 `cmd/api/main.go` 完成所有模組的依賴注入與 Graceful Shutdown，整合測試與編譯成功。
 
 ### 3. 高優先級 Bug 修復與本地環境驗證 (2026/07/02)
+
 - **修正 Nil Panic**：修復 `device_service.go` 中因 ScyllaDB 降級導致的 `telemetryRepo` 為 `nil` 的 panic 問題。
 - **修正 PostgreSQL 容錯邏輯**：PostgreSQL 為核心資料庫不可降級，將離線警告改為 `log.Fatalf` 立即中止，避免引發後續層級的 Panic。
 - **ScyllaDB 架構升級**：為支援 ScyllaDB 6.0 的 Tablet Replication 新特性，將 `docker-compose.dev.yml` 及 `client.go` 的 Keyspace 策略由 `SimpleStrategy` 全面升級為符合生產環境標準的 `NetworkTopologyStrategy`。
