@@ -15,13 +15,12 @@ type Device struct {
 	DeviceType string                 `gorm:"type:varchar(50);not null;column:device_type" json:"device_type"` // sensor / controller / gateway
 	Location   string                 `gorm:"type:varchar(200)" json:"location"`
 	Metadata   map[string]interface{} `gorm:"type:jsonb;serializer:json" json:"metadata"` // 彈性欄位
-	OwnerID    *uuid.UUID             `gorm:"type:uuid;column:owner_id" json:"owner_id,omitempty"`
 	Status     string                 `gorm:"type:varchar(20);not null;default:'inactive'" json:"status"` // active / inactive / maintenance
 	CreatedAt  time.Time              `gorm:"type:timestamptz;not null;default:now()" json:"created_at"`
 	UpdatedAt  time.Time              `gorm:"type:timestamptz;not null;default:now()" json:"updated_at"`
 
 	// 關聯
-	Owner *User `gorm:"foreignKey:OwnerID;constraint:OnDelete:SET NULL;" json:"owner,omitempty"`
+	Users []User `gorm:"many2many:user_devices;" json:"users,omitempty"`
 }
 
 // TableName 指定資料表名稱

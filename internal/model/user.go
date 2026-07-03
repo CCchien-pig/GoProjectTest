@@ -13,10 +13,14 @@ type User struct {
 	Username     string    `gorm:"type:varchar(100);unique;not null" json:"username"`
 	Email        string    `gorm:"type:varchar(255);unique;not null" json:"email"`
 	PasswordHash string    `gorm:"type:varchar(255);not null;column:password_hash" json:"-"`
-	Role         string    `gorm:"type:varchar(20);not null;default:'viewer'" json:"role"` // admin / operator / viewer
+	RoleID       uuid.UUID `gorm:"type:uuid;column:role_id" json:"role_id"` // 關聯 roles
 	IsActive     bool      `gorm:"type:boolean;not null;default:true" json:"is_active"`
 	CreatedAt    time.Time `gorm:"type:timestamptz;not null;default:now()" json:"created_at"`
 	UpdatedAt    time.Time `gorm:"type:timestamptz;not null;default:now()" json:"updated_at"`
+
+	// 關聯
+	Role    *Role    `gorm:"foreignKey:RoleID" json:"role,omitempty"`
+	Devices []Device `gorm:"many2many:user_devices;" json:"devices,omitempty"`
 
 	// 額外欄位：只用於回傳，不對應 DB
 	DeviceCount int64 `gorm:"-" json:"device_count,omitempty"`

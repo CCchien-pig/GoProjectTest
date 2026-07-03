@@ -31,7 +31,7 @@ func (m *mockUserService) Create(ctx context.Context, req *dto.CreateUserReq) (*
 		ID:        uuid.New(),
 		Username:  req.Username,
 		Email:     req.Email,
-		Role:      req.Role,
+		Role:      &dto.RoleResp{ID: req.RoleID},
 		IsActive:  true,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -46,7 +46,7 @@ func (m *mockUserService) FindByID(ctx context.Context, id uuid.UUID) (*dto.User
 		ID:        id,
 		Username:  "mockuser",
 		Email:     "mock@example.com",
-		Role:      "viewer",
+		Role:      &dto.RoleResp{Name: "viewer"},
 		IsActive:  true,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -61,7 +61,7 @@ func (m *mockUserService) Update(ctx context.Context, id uuid.UUID, req *dto.Upd
 		ID:        id,
 		Username:  "updateduser",
 		Email:     "updated@example.com",
-		Role:      "operator",
+		Role:      &dto.RoleResp{Name: "operator"},
 		IsActive:  true,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
@@ -90,7 +90,7 @@ func TestUserHandler_Create(t *testing.T) {
 		Username: "adminuser",
 		Email:    "admin@example.com",
 		Password: "password",
-		Role:     "admin",
+		RoleID:   uuid.New(),
 	}
 
 	body, _ := json.Marshal(reqPayload)

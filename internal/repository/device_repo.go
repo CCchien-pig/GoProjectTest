@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// DeviceRepository 定義�?devices 資�?表�?資�?存�?介面
+// DeviceRepository 定義了 devices 資料表的資料存取介面
 type DeviceRepository interface {
 	Create(ctx context.Context, device *model.Device) error
 	FindByID(ctx context.Context, id uuid.UUID) (*model.Device, error)
@@ -21,13 +21,14 @@ type DeviceRepository interface {
 	Update(ctx context.Context, device *model.Device) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, cursor string, limit int, deviceType, status, location, search string) ([]*model.Device, string, error)
+	ReplaceUsers(ctx context.Context, device *model.Device, users []model.User) error
 }
 
 type gormDeviceRepository struct {
 	db *gorm.DB
 }
 
-// NewDeviceRepository 建�? GORM ??DeviceRepository 實�?
+// NewDeviceRepository 建立 GORM 的 DeviceRepository 實體
 func NewDeviceRepository(db *gorm.DB) DeviceRepository {
 	return &gormDeviceRepository{db: db}
 }
@@ -38,7 +39,7 @@ func (r *gormDeviceRepository) Create(ctx context.Context, device *model.Device)
 
 func (r *gormDeviceRepository) FindByID(ctx context.Context, id uuid.UUID) (*model.Device, error) {
 	var device model.Device
-	if err := r.db.WithContext(ctx).Preload("Owner").First(&device, "id = ?", id).Error; err != nil {
+	if err := r.db.WithContext(ctx).Preload("Users.Role.Permissions").Preload("Users").First(&device, "id = ?", id).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -67,7 +68,7 @@ func (r *gormDeviceRepository) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *gormDeviceRepository) List(ctx context.Context, cursor string, limit int, deviceType, status, location, search string) ([]*model.Device, string, error) {
-	query := r.db.WithContext(ctx).Model(&model.Device{}).Preload("Owner")
+	query := r.db.WithContext(ctx).Model(&model.Device{}).Preload("Users.Role.Permissions").Preload("Users")
 
 	// 篩選過濾
 	if deviceType != "" {
@@ -80,21 +81,21 @@ func (r *gormDeviceRepository) List(ctx context.Context, cursor string, limit in
 		query = query.Where("location = ?", location)
 	}
 
-	// pg_trgm 模�??��?
+	// pg_trgm 模糊搜尋
 	if search != "" {
 		query = query.Where("device_code ILIKE ? OR name ILIKE ?", "%"+search+"%", "%"+search+"%")
 	}
 
-	// 套用 Cursor-based ?��? (?�設?��??��?：�??�創建�??��???
+	// 套用 Cursor-based 分頁 (預設排序：依建立時間降冪)
 	if cursor != "" {
 		cursorTime, cursorID, err := decodeCursor(cursor)
 		if err == nil {
-			// ??PostgreSQL 中�??�以使用 Tuple 比�?�?created_at, id) < (cursorTime, cursorID)
+			// 在 PostgreSQL 中，可以使用 Tuple 比較 (created_at, id) < (cursorTime, cursorID)
 			query = query.Where("(created_at, id) < (?, ?)", cursorTime, cursorID)
 		}
 	}
 
-	// ?��?並�??��??��???(多查一筆以確�??�無下�???
+	// 排序並限制取回筆數 (多查一筆以確認有無下一頁)
 	query = query.Order("created_at DESC, id DESC").Limit(limit + 1)
 
 	var devices []*model.Device
@@ -110,6 +111,10 @@ func (r *gormDeviceRepository) List(ctx context.Context, cursor string, limit in
 	}
 
 	return devices, nextCursor, nil
+}
+
+func (r *gormDeviceRepository) ReplaceUsers(ctx context.Context, device *model.Device, users []model.User) error {
+	return r.db.WithContext(ctx).Model(device).Association("Users").Replace(users)
 }
 
 // Cursor 編解碼輔助函數

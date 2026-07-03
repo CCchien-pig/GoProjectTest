@@ -31,7 +31,7 @@ func (m *mockDeviceService) Create(ctx context.Context, req *dto.CreateDeviceReq
 		DeviceType: req.DeviceType,
 		Location:   req.Location,
 		Metadata:   req.Metadata,
-		OwnerID:    req.OwnerID,
+
 		Status:     req.Status,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),

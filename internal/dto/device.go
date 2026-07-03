@@ -14,7 +14,7 @@ type CreateDeviceReq struct {
 	DeviceType string                 `json:"device_type" binding:"required,oneof=sensor controller gateway"`
 	Location   string                 `json:"location" binding:"omitempty,max=200"`
 	Metadata   map[string]interface{} `json:"metadata" binding:"omitempty"`
-	OwnerID    *uuid.UUID             `json:"owner_id" binding:"omitempty"`
+	UserIDs    []uuid.UUID            `json:"user_ids" binding:"omitempty"`
 	Status     string                 `json:"status" binding:"omitempty,oneof=active inactive maintenance"`
 }
 
@@ -24,7 +24,7 @@ type UpdateDeviceReq struct {
 	DeviceType *string                `json:"device_type" binding:"omitempty,oneof=sensor controller gateway"`
 	Location   *string                `json:"location" binding:"omitempty,max=200"`
 	Metadata   map[string]interface{} `json:"metadata" binding:"omitempty"`
-	OwnerID    *uuid.UUID             `json:"owner_id" binding:"omitempty"`
+	UserIDs    []uuid.UUID            `json:"user_ids" binding:"omitempty"`
 	Status     *string                `json:"status" binding:"omitempty,oneof=active inactive maintenance"`
 }
 
@@ -36,11 +36,10 @@ type DeviceResp struct {
 	DeviceType string                 `json:"device_type"`
 	Location   string                 `json:"location"`
 	Metadata   map[string]interface{} `json:"metadata,omitempty"`
-	OwnerID    *uuid.UUID             `json:"owner_id,omitempty"`
 	Status     string                 `json:"status"`
 	CreatedAt  time.Time              `json:"created_at"`
 	UpdatedAt  time.Time              `json:"updated_at"`
-	Owner      *UserResp              `json:"owner,omitempty"`
+	Users      []*UserResp            `json:"users,omitempty"`
 
 	// ScyllaDB 遙測欄位（Week 2 新增）
 	LatestTelemetry interface{} `json:"latest_telemetry,omitempty"`
@@ -51,9 +50,15 @@ func ToDeviceResp(device *model.Device) *DeviceResp {
 	if device == nil {
 		return nil
 	}
-	var ownerResp *UserResp
-	if device.Owner != nil {
-		ownerResp = ToUserResp(device.Owner)
+	
+	var userResps []*UserResp
+	if len(device.Users) > 0 {
+		userResps = make([]*UserResp, len(device.Users))
+		for i, u := range device.Users {
+			// Create a copy to avoid loop variable issues
+			userCopy := u
+			userResps[i] = ToUserResp(&userCopy)
+		}
 	}
 
 	return &DeviceResp{
@@ -63,11 +68,10 @@ func ToDeviceResp(device *model.Device) *DeviceResp {
 		DeviceType: device.DeviceType,
 		Location:   device.Location,
 		Metadata:   device.Metadata,
-		OwnerID:    device.OwnerID,
 		Status:     device.Status,
 		CreatedAt:  device.CreatedAt,
 		UpdatedAt:  device.UpdatedAt,
-		Owner:      ownerResp,
+		Users:      userResps,
 	}
 }
 

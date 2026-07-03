@@ -67,12 +67,18 @@ func (s *userService) Create(ctx context.Context, req *dto.CreateUserReq) (*dto.
 		Username:     req.Username,
 		Email:        req.Email,
 		PasswordHash: string(hashed),
-		Role:         req.Role,
+		RoleID:       req.RoleID,
 		IsActive:     true,
 	}
 
 	if err := s.repo.Create(ctx, user); err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
+	}
+
+	// 重新讀取以取得關聯的 Role 與 Permissions
+	reloaded, err := s.repo.FindByID(ctx, user.ID)
+	if err == nil && reloaded != nil {
+		user = reloaded
 	}
 
 	return dto.ToUserResp(user), nil
@@ -120,8 +126,8 @@ func (s *userService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateU
 		user.Email = *req.Email
 	}
 
-	if req.Role != nil {
-		user.Role = *req.Role
+	if req.RoleID != nil {
+		user.RoleID = *req.RoleID
 	}
 
 	if req.IsActive != nil {
@@ -130,6 +136,12 @@ func (s *userService) Update(ctx context.Context, id uuid.UUID, req *dto.UpdateU
 
 	if err := s.repo.Update(ctx, user); err != nil {
 		return nil, fmt.Errorf("update user: %w", err)
+	}
+
+	// 重新讀取以取得關聯的 Role 與 Permissions
+	reloaded, err := s.repo.FindByID(ctx, user.ID)
+	if err == nil && reloaded != nil {
+		user = reloaded
 	}
 
 	return dto.ToUserResp(user), nil

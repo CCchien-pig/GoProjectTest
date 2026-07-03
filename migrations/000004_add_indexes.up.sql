@@ -9,3 +9,8 @@ CREATE INDEX IF NOT EXISTS idx_devices_name_trgm ON devices USING gin (name gin_
 CREATE INDEX IF NOT EXISTS idx_devices_device_type ON devices (device_type);
 CREATE INDEX IF NOT EXISTS idx_devices_status ON devices (status);
 CREATE INDEX IF NOT EXISTS idx_devices_location ON devices (location);
+
+-- Indexes for new relationships
+CREATE INDEX IF NOT EXISTS idx_users_role_id ON users (role_id);
+CREATE INDEX IF NOT EXISTS idx_user_devices_user_id ON user_devices (user_id);
+CREATE INDEX IF NOT EXISTS idx_user_devices_device_id ON user_devices (device_id);

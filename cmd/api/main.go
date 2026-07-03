@@ -42,7 +42,7 @@ func main() {
 	} else {
 		log.Println("PostgreSQL connected successfully")
 		// 執行 Migration 資料表
-		if err := db.AutoMigrate(&model.User{}, &model.Device{}, &model.AlertRule{}); err != nil {
+		if err := db.AutoMigrate(&model.Role{}, &model.Permission{}, &model.User{}, &model.Device{}, &model.AlertRule{}); err != nil {
 			log.Fatalf("failed to auto migrate tables: %v", err)
 		}
 		log.Println("PostgreSQL auto migration completed")

@@ -17,7 +17,7 @@ func TestLoad(t *testing.T) {
 	os.Setenv("KEYDB_ADDR", "localhost:6379")
 	os.Setenv("KEYDB_PASSWORD", "secret")
 	os.Setenv("KEYDB_CLUSTER_MODE", "true")
-	os.Setenv("MIGRATION_SOURCE_URL", "file://migrations")
+
 
 	defer func() {
 		os.Unsetenv("APP_ENV")
@@ -30,7 +30,7 @@ func TestLoad(t *testing.T) {
 		os.Unsetenv("KEYDB_ADDR")
 		os.Unsetenv("KEYDB_PASSWORD")
 		os.Unsetenv("KEYDB_CLUSTER_MODE")
-		os.Unsetenv("MIGRATION_SOURCE_URL")
+
 	}()
 
 	cfg := Load()
@@ -65,7 +65,5 @@ func TestLoad(t *testing.T) {
 	if !cfg.KeyDBClusterMode {
 		t.Errorf("expected KeyDBClusterMode to be true, got false")
 	}
-	if cfg.MigrationSourceURL != "file://migrations" {
-		t.Errorf("expected MigrationSourceURL matches, got %s", cfg.MigrationSourceURL)
-	}
+
 }

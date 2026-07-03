@@ -80,7 +80,8 @@ func TestTelemetryService_BatchInsert_AlertTrigger(t *testing.T) {
 	alertRuleRepo.rules[rule.ID] = rule
 	alertRuleRepo.rulesByDevice[devID] = append(alertRuleRepo.rulesByDevice[devID], rule)
 
-	// 1. 測試沒�?觸發?�警?��?測寫??	req := &dto.BatchTelemetryReq{
+	// 1. 測試沒有觸發告警的遙測寫入
+	req := &dto.BatchTelemetryReq{
 		Points: []dto.TelemetryPoint{
 			{
 				RecordedAt: time.Now(),

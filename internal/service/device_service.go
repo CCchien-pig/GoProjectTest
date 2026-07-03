@@ -53,14 +53,18 @@ func (s *deviceService) Create(ctx context.Context, req *dto.CreateDeviceReq) (*
 		return nil, ErrDeviceCodeDuplicate
 	}
 
-	// 檢查 Owner
-	if req.OwnerID != nil {
-		user, err := s.userRepo.FindByID(ctx, *req.OwnerID)
-		if err != nil {
-			return nil, fmt.Errorf("find owner: %w", err)
-		}
-		if user == nil {
-			return nil, ErrUserNotFound
+	// 檢查 Users
+	var usersToBind []model.User
+	if len(req.UserIDs) > 0 {
+		for _, uid := range req.UserIDs {
+			u, err := s.userRepo.FindByID(ctx, uid)
+			if err != nil {
+				return nil, fmt.Errorf("find user %s: %w", uid, err)
+			}
+			if u == nil {
+				return nil, ErrUserNotFound
+			}
+			usersToBind = append(usersToBind, *u)
 		}
 	}
 
@@ -75,16 +79,16 @@ func (s *deviceService) Create(ctx context.Context, req *dto.CreateDeviceReq) (*
 		DeviceType: req.DeviceType,
 		Location:   req.Location,
 		Metadata:   req.Metadata,
-		OwnerID:    req.OwnerID,
 		Status:     status,
+		Users:      usersToBind,
 	}
 
 	if err := s.repo.Create(ctx, device); err != nil {
 		return nil, fmt.Errorf("create device: %w", err)
 	}
 
-	// 若有設定 Owner，重新 Preload 取得完整的 Owner 資料
-	if req.OwnerID != nil {
+	// 若有設定 Users，重新 Preload 取得完整的 Users 資料
+	if len(req.UserIDs) > 0 {
 		reloaded, reloadErr := s.repo.FindByID(ctx, device.ID)
 		if reloadErr != nil {
 			return nil, fmt.Errorf("reload device after create: %w", reloadErr)
@@ -109,7 +113,6 @@ func (s *deviceService) FindByID(ctx context.Context, id uuid.UUID) (*dto.Device
 	resp := dto.ToDeviceResp(device)
 
 	// 從 ScyllaDB 查出該設備最新遙測資料一併回傳
-	// 先確認 telemetryRepo 不為 nil（ScyllaDB 離線時不做查詢，避免 nil panic）
 	if s.telemetryRepo != nil {
 		telemetries, telErr := s.telemetryRepo.QueryLatest(ctx, id)
 		if telErr == nil && len(telemetries) > 0 {
@@ -144,22 +147,32 @@ func (s *deviceService) Update(ctx context.Context, id uuid.UUID, req *dto.Updat
 	if req.Status != nil {
 		device.Status = *req.Status
 	}
-	if req.OwnerID != nil {
-		user, err := s.userRepo.FindByID(ctx, *req.OwnerID)
-		if err != nil {
-			return nil, fmt.Errorf("find owner: %w", err)
-		}
-		if user == nil {
-			return nil, ErrUserNotFound
-		}
-		device.OwnerID = req.OwnerID
-	}
 
 	if err := s.repo.Update(ctx, device); err != nil {
 		return nil, fmt.Errorf("update device: %w", err)
 	}
 
-	// 重新 Preload 取得 Owner 關聯資料（忽略錯誤時直接使用更新前的 device）
+	// 處理關聯的 Users 更新
+	if req.UserIDs != nil {
+		var usersToBind []model.User
+		if len(req.UserIDs) > 0 {
+			for _, uid := range req.UserIDs {
+				u, err := s.userRepo.FindByID(ctx, uid)
+				if err != nil {
+					return nil, fmt.Errorf("find user %s: %w", uid, err)
+				}
+				if u == nil {
+					return nil, ErrUserNotFound
+				}
+				usersToBind = append(usersToBind, *u)
+			}
+		}
+		if err := s.repo.ReplaceUsers(ctx, device, usersToBind); err != nil {
+			return nil, fmt.Errorf("replace device users: %w", err)
+		}
+	}
+
+	// 重新 Preload 取得 Users 關聯資料
 	reloaded, reloadErr := s.repo.FindByID(ctx, device.ID)
 	if reloadErr != nil {
 		return nil, fmt.Errorf("reload device after update: %w", reloadErr)

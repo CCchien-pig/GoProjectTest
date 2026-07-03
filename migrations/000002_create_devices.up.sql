@@ -6,8 +6,14 @@ CREATE TABLE IF NOT EXISTS devices (
     device_type   VARCHAR(50)  NOT NULL,           -- sensor / controller / gateway
     location      VARCHAR(200),                    -- 廠區/區域
     metadata      JSONB DEFAULT '{}',              -- 彈性欄位（韌體版本、IP、型號等）
-    owner_id      UUID REFERENCES users(id),
     status        VARCHAR(20)  NOT NULL DEFAULT 'inactive', -- active / inactive / maintenance
     created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS user_devices (
+    user_id       UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    device_id     UUID NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+    created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+    PRIMARY KEY (user_id, device_id)
 );
