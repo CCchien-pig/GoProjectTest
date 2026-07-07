@@ -81,10 +81,14 @@ func (m *mockDeviceRepository) List(ctx context.Context, cursor string, limit in
 	return list, "", nil
 }
 
+func (m *mockDeviceRepository) Count(ctx context.Context) (int64, error) {
+	return int64(len(m.devices)), nil
+}
+
 func TestDeviceService_Create(t *testing.T) {
 	userRepo := newMockUserRepository()
 	repo := newMockDeviceRepository()
-	svc := NewDeviceService(repo, userRepo, &mockTelemetryRepository{})
+	svc := NewDeviceService(repo, userRepo, &mockTelemetryRepository{}, nil)
 
 	u := &model.User{ID: uuid.New(), Username: "owner"}
 	userRepo.users[u.ID] = u

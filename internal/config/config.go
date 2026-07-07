@@ -26,6 +26,9 @@ type Config struct {
 	KeyDBAddr        string
 	KeyDBPassword    string
 	KeyDBClusterMode bool
+	KeyDBUseTLS      bool
+	KeyDBCACertPath  string
+	KeyDBInsecure    bool
 }
 
 // Load 從 .env.dev 載入設定
@@ -36,6 +39,8 @@ func Load() *Config {
 	dbMaxConns, _ := strconv.Atoi(getEnv("DB_MAX_CONNS", "10"))
 	dbMinConns, _ := strconv.Atoi(getEnv("DB_MIN_CONNS", "2"))
 	keyDBClusterMode, _ := strconv.ParseBool(getEnv("KEYDB_CLUSTER_MODE", "false"))
+	keyDBUseTLS, _ := strconv.ParseBool(getEnv("KEYDB_USE_TLS", "false"))
+	keyDBInsecure, _ := strconv.ParseBool(getEnv("KEYDB_INSECURE_SKIP_VERIFY", "false"))
 
 	return &Config{
 		AppEnv:           getEnv("APP_ENV", "development"),
@@ -48,6 +53,9 @@ func Load() *Config {
 		KeyDBAddr:        getEnv("KEYDB_ADDR", "localhost:6379"),
 		KeyDBPassword:    getEnv("KEYDB_PASSWORD", ""),
 		KeyDBClusterMode: keyDBClusterMode,
+		KeyDBUseTLS:      keyDBUseTLS,
+		KeyDBCACertPath:  getEnv("KEYDB_CA_CERT_PATH", ""),
+		KeyDBInsecure:    keyDBInsecure,
 	}
 }
 
@@ -57,7 +65,7 @@ func loadEnvFile(filename string) {
 	if err != nil {
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// 簡易解析 KEY=VALUE 格式
 	import_godotenv_style(filename)
@@ -78,7 +86,7 @@ func import_godotenv_style(filename string) {
 				key := line[:i]
 				val := line[i+1:]
 				if _, exists := os.LookupEnv(key); !exists {
-					os.Setenv(key, val)
+					_ = os.Setenv(key, val)
 				}
 				break
 			}

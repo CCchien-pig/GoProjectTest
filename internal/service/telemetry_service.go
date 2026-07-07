@@ -2,12 +2,14 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
+	"GoProject/udm/internal/cache"
 	"GoProject/udm/internal/dto"
 	"GoProject/udm/internal/model"
 	"GoProject/udm/internal/repository"
@@ -34,6 +36,7 @@ type telemetryService struct {
 	alertRepo     scylla.AlertEventRepository
 	deviceRepo    repository.DeviceRepository
 	alertRuleRepo repository.AlertRuleRepository
+	cache         cache.Service
 }
 
 // NewTelemetryService 建立 TelemetryService 實體
@@ -42,12 +45,14 @@ func NewTelemetryService(
 	alertRepo scylla.AlertEventRepository,
 	deviceRepo repository.DeviceRepository,
 	alertRuleRepo repository.AlertRuleRepository,
+	cacheService cache.Service,
 ) TelemetryService {
 	return &telemetryService{
 		telemetryRepo: telemetryRepo,
 		alertRepo:     alertRepo,
 		deviceRepo:    deviceRepo,
 		alertRuleRepo: alertRuleRepo,
+		cache:         cacheService,
 	}
 }
 
@@ -67,6 +72,23 @@ func (s *telemetryService) BatchInsert(ctx context.Context, deviceID uuid.UUID, 
 	}
 	if err := s.telemetryRepo.BatchInsert(ctx, deviceID, req.Points); err != nil {
 		return fmt.Errorf("batch insert telemetry: %w", err)
+	}
+
+	idStr := deviceID.String()
+
+	// 2.1 Update online status in KeyDB
+	if s.cache != nil {
+		_ = s.cache.SetOnlineStatus(ctx, idStr)
+	}
+
+	// 2.2 Update Write-Through latest telemetry
+	if s.cache != nil {
+		latest, qErr := s.telemetryRepo.QueryLatest(ctx, deviceID)
+		if qErr == nil && len(latest) > 0 {
+			if latestBytes, jsonErr := json.Marshal(latest); jsonErr == nil {
+				_ = s.cache.SetLatestTelemetry(ctx, idStr, latestBytes)
+			}
+		}
 	}
 
 	// 3. 告警評估邏輯：查詢該設備的告警規則
@@ -99,7 +121,12 @@ func (s *telemetryService) BatchInsert(ctx context.Context, deviceID uuid.UUID, 
 					if s.alertRepo != nil {
 						if err := s.alertRepo.Insert(ctx, event); err != nil {
 							// 記錄 log，不因告警寫入失敗而讓主要 API 崩潰
-							log.Printf("failed to insert alert event: %v\n", err)
+							slog.ErrorContext(ctx, "failed to insert alert event", "error", err)
+						} else {
+							// Increment alert count in KeyDB
+							if s.cache != nil {
+								_ = s.cache.IncrAlertCount(ctx, idStr, rule.Severity)
+							}
 						}
 					}
 				}

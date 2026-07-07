@@ -16,7 +16,6 @@ import (
 )
 
 type mockDeviceService struct {
-	onCreate   func(req *dto.CreateDeviceReq) (*dto.DeviceResp, error)
 	onFindByID func(id uuid.UUID) (*dto.DeviceResp, error)
 	onUpdate   func(id uuid.UUID, req *dto.UpdateDeviceReq) (*dto.DeviceResp, error)
 	onDelete   func(id uuid.UUID) error

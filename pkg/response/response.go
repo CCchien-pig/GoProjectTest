@@ -71,3 +71,11 @@ func ServiceUnavailable(c *gin.Context, message string) {
 		Message: message,
 	})
 }
+
+// Forbidden 回傳 403 權限不足
+func Forbidden(c *gin.Context, message string) {
+	c.JSON(http.StatusForbidden, Response{
+		Code:    http.StatusForbidden,
+		Message: message,
+	})
+}

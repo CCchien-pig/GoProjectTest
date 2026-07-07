@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -14,6 +14,7 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	"GoProject/udm/internal/cache"
 	"GoProject/udm/internal/config"
 	"GoProject/udm/internal/handler"
 	"GoProject/udm/internal/keydb"
@@ -22,10 +23,14 @@ import (
 	"GoProject/udm/internal/routes"
 	"GoProject/udm/internal/scylla"
 	"GoProject/udm/internal/service"
+	"GoProject/udm/pkg/logger"
 )
 
 func main() {
-	log.Println("Starting UDM Platform API Server...")
+	// 初始化結構化日誌
+	logger.InitLogger()
+
+	slog.Info("Starting UDM Platform API Server...")
 
 	// 1. 載入環境變數設定
 	cfg := config.Load()
@@ -38,15 +43,16 @@ func main() {
 
 	if err != nil {
 		// PostgreSQL 為核心資料庫，若失敗則立即中止服務
-		// （與 ScyllaDB/KeyDB 不同，不可降級，因為主要 CRUD 全部依賴 PostgreSQL）
-		log.Fatalf("CRITICAL: PostgreSQL connection failed: %v\n", err)
+		slog.Error("CRITICAL: PostgreSQL connection failed", "error", err)
+		os.Exit(1)
 	} else {
-		log.Println("PostgreSQL connected successfully")
+		slog.Info("PostgreSQL connected successfully")
 		// 執行 Migration 資料表
 		if err := db.AutoMigrate(&model.Role{}, &model.Permission{}, &model.User{}, &model.Device{}, &model.AlertRule{}); err != nil {
-			log.Fatalf("failed to auto migrate tables: %v", err)
+			slog.Error("failed to auto migrate tables", "error", err)
+			os.Exit(1)
 		}
-		log.Println("PostgreSQL auto migration completed")
+		slog.Info("PostgreSQL auto migration completed")
 
 		userRepo = repository.NewUserRepository(db)
 		deviceRepo = repository.NewDeviceRepository(db)
@@ -61,32 +67,43 @@ func main() {
 	hosts := strings.Split(cfg.ScyllaHosts, ",")
 	scyllaClient, err = scylla.NewClient(hosts, cfg.ScyllaKeyspace)
 	if err != nil {
-		log.Printf("ScyllaDB connection failed: %v. Ingestions will run in degraded mode.\n", err)
+		slog.Warn("ScyllaDB connection failed. Ingestions will run in degraded mode.", "error", err)
 	} else {
-		log.Println("ScyllaDB connected and keyspace initialized successfully")
+		slog.Info("ScyllaDB connected and keyspace initialized successfully")
 		telemetryRepo = scylla.NewTelemetryRepository(scyllaClient)
 		alertEventRepo = scylla.NewAlertEventRepository(scyllaClient)
 	}
 
 	// 4. 初始化 KeyDB
 	var keydbClient *keydb.Client
-	keydbClient, err = keydb.NewClient(cfg.KeyDBAddr, cfg.KeyDBPassword, cfg.KeyDBClusterMode)
+	keydbClient, err = keydb.NewClient(cfg.KeyDBAddr, cfg.KeyDBPassword, cfg.KeyDBClusterMode, cfg.KeyDBUseTLS, cfg.KeyDBCACertPath, cfg.KeyDBInsecure)
 	if err != nil {
-		log.Printf("KeyDB connection failed: %v. Caching will run in degraded mode.\n", err)
+		slog.Warn("KeyDB connection failed. Caching will run in degraded mode.", "error", err)
 	} else {
-		log.Println("KeyDB connected successfully")
+		slog.Info("KeyDB connected successfully")
 	}
 
 	// 5. 組裝 Repositories, Services, and Handlers
+	var cacheService cache.Service
+	if keydbClient != nil {
+		cacheService = cache.NewService(keydbClient.Client)
+	}
+
 	userService := service.NewUserService(userRepo)
-	deviceService := service.NewDeviceService(deviceRepo, userRepo, telemetryRepo)
+	deviceService := service.NewDeviceService(deviceRepo, userRepo, telemetryRepo, cacheService)
 	alertRuleService := service.NewAlertRuleService(alertRuleRepo, deviceRepo)
-	telemetryService := service.NewTelemetryService(telemetryRepo, alertEventRepo, deviceRepo, alertRuleRepo)
+	telemetryService := service.NewTelemetryService(telemetryRepo, alertEventRepo, deviceRepo, alertRuleRepo, cacheService)
+	statusService := service.NewStatusService(cacheService, telemetryRepo)
+	dashboardService := service.NewDashboardService(cacheService, deviceRepo)
 
 	userHandler := handler.NewUserHandler(userService)
 	deviceHandler := handler.NewDeviceHandler(deviceService)
 	alertRuleHandler := handler.NewAlertRuleHandler(alertRuleService)
 	telemetryHandler := handler.NewTelemetryHandler(telemetryService)
+	statusHandler := handler.NewStatusHandler(statusService)
+	dashboardHandler := handler.NewDashboardHandler(dashboardService)
+	cacheHandler := handler.NewCacheHandler(cacheService)
+	healthHandler := handler.NewHealthHandler(db, scyllaClient, keydbClient)
 
 	// 6. 註冊 Gin 路由
 	router := routes.Setup(&routes.Dependencies{
@@ -94,6 +111,10 @@ func main() {
 		DeviceHandler:    deviceHandler,
 		TelemetryHandler: telemetryHandler,
 		AlertRuleHandler: alertRuleHandler,
+		StatusHandler:    statusHandler,
+		DashboardHandler: dashboardHandler,
+		CacheHandler:     cacheHandler,
+		HealthHandler:    healthHandler,
 	})
 
 	// 7. 啟動 HTTP 伺服器
@@ -104,37 +125,39 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("failed to start server: %v", err)
+			slog.Error("failed to start server", "error", err)
+			os.Exit(1)
 		}
 	}()
-	log.Printf("HTTP Server is listening on port %s", cfg.APIPort)
+	slog.Info("HTTP Server is listening", "port", cfg.APIPort)
 
 	// 8. 實作 Graceful Shutdown（優雅關機）
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down API Server gracefully...")
+	slog.Info("Shutting down API Server gracefully...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		slog.Error("Server forced to shutdown", "error", err)
+		os.Exit(1)
 	}
 
 	// 依序關閉並釋放資源
 	if keydbClient != nil {
 		if err := keydbClient.Close(); err != nil {
-			log.Printf("error closing KeyDB: %v", err)
+			slog.Error("error closing KeyDB", "error", err)
 		}
-		log.Println("KeyDB connection closed")
+		slog.Info("KeyDB connection closed")
 	}
 	if scyllaClient != nil {
 		scyllaClient.Close()
-		log.Println("ScyllaDB connection closed")
+		slog.Info("ScyllaDB connection closed")
 	}
 
-	log.Println("UDM API Server gracefully stopped")
+	slog.Info("UDM API Server gracefully stopped")
 }
 
 func initPostgres(cfg *config.Config) (*gorm.DB, error) {

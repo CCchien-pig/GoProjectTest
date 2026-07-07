@@ -62,7 +62,7 @@ func TestTelemetryService_BatchInsert_AlertTrigger(t *testing.T) {
 	telemetryRepo := &mockTelemetryRepository{}
 	alertRepo := &mockAlertEventRepository{}
 
-	svc := NewTelemetryService(telemetryRepo, alertRepo, deviceRepo, alertRuleRepo)
+	svc := NewTelemetryService(telemetryRepo, alertRepo, deviceRepo, alertRuleRepo, nil)
 
 	devID := uuid.New()
 	dev := &model.Device{ID: devID, DeviceCode: "DEV-100"}

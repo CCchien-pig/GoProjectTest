@@ -107,6 +107,15 @@ func (h *DeviceHandler) Delete(c *gin.Context) {
 			response.NotFound(c, err.Error())
 			return
 		}
+		if errors.Is(err, service.ErrCacheCleanupFailed) {
+			// Saga 207 Multi-Status / Partial Success
+			c.JSON(207, gin.H{
+				"code":    207,
+				"message": "partial success: device deleted from PostgreSQL, but KeyDB cache cleanup failed",
+				"data":    "cache_cleanup_failed",
+			})
+			return
+		}
 		response.InternalError(c, err.Error())
 		return
 	}

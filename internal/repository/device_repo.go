@@ -22,6 +22,8 @@ type DeviceRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	List(ctx context.Context, cursor string, limit int, deviceType, status, location, search string) ([]*model.Device, string, error)
 	UpdateWithUsers(ctx context.Context, device *model.Device, users []model.User) error
+	// Count 回傳設備總數（不含分頁，用於 Dashboard 統計）
+	Count(ctx context.Context) (int64, error)
 }
 
 type gormDeviceRepository struct {
@@ -124,6 +126,14 @@ func (r *gormDeviceRepository) UpdateWithUsers(ctx context.Context, device *mode
 		}
 		return nil
 	})
+}
+
+func (r *gormDeviceRepository) Count(ctx context.Context) (int64, error) {
+	var count int64
+	if err := r.db.WithContext(ctx).Model(&model.Device{}).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
 }
 
 // Cursor 編解碼輔助函數

@@ -104,7 +104,7 @@ func TestUserHandler_Create(t *testing.T) {
 	}
 
 	var res response.Response
-	json.Unmarshal(w.Body.Bytes(), &res)
+	_ = json.Unmarshal(w.Body.Bytes(), &res)
 	if res.Code != http.StatusOK {
 		t.Errorf("expected 200 inside response, got %d", res.Code)
 	}

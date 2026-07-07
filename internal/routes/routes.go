@@ -1,8 +1,6 @@
 package routes
 
 import (
-	"net/http"
-
 	"github.com/gin-gonic/gin"
 	"GoProject/udm/internal/handler"
 	"GoProject/udm/internal/middleware"
@@ -14,6 +12,10 @@ type Dependencies struct {
 	DeviceHandler    *handler.DeviceHandler
 	TelemetryHandler *handler.TelemetryHandler
 	AlertRuleHandler *handler.AlertRuleHandler
+	StatusHandler    *handler.StatusHandler
+	DashboardHandler *handler.DashboardHandler
+	CacheHandler     *handler.CacheHandler
+	HealthHandler    *handler.HealthHandler
 }
 
 // Setup 設定 Gin 引擎路由與中間件
@@ -24,10 +26,8 @@ func Setup(deps *Dependencies) *gin.Engine {
 	r.Use(gin.Logger(), gin.Recovery())
 	r.Use(middleware.TraceID())
 
-	// 簡易健康檢查（後續可加入各資料庫的健康狀態）
-	r.GET("/health", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"status": "healthy"})
-	})
+	// 健康檢查（包含各資料庫的健康狀態）
+	r.GET("/health", deps.HealthHandler.Health)
 
 	v1 := r.Group("/api/v1")
 	{
@@ -59,6 +59,9 @@ func Setup(deps *Dependencies) *gin.Engine {
 			devices.GET("/:id/telemetry/latest", deps.TelemetryHandler.QueryLatest)
 			devices.DELETE("/:id/telemetry", deps.TelemetryHandler.DeleteByRange)
 			devices.GET("/:id/alert-events", deps.TelemetryHandler.QueryAlertEvents)
+
+			// 即時狀態子資源
+			devices.GET("/:id/status", deps.StatusHandler.GetStatus)
 		}
 
 		// 3. Alert Rules 獨立更新/刪除端點
@@ -70,6 +73,10 @@ func Setup(deps *Dependencies) *gin.Engine {
 
 		// 4. Alert Event ACK 專屬端點（含多個路徑參數）
 		v1.PUT("/alert-events/:device_id/:month/:triggered_at/:rule_id/ack", deps.TelemetryHandler.AcknowledgeAlertEvent)
+
+		// 5. 快取與儀表板端點
+		v1.GET("/dashboard/overview", deps.DashboardHandler.GetOverview)
+		v1.POST("/cache/invalidate", deps.CacheHandler.Invalidate)
 	}
 
 	return r

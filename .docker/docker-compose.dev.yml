@@ -44,13 +44,14 @@ services:
     image: eqalpha/keydb:latest
     container_name: udm-keydb
     restart: unless-stopped
-    command: keydb-server --appendonly yes
+    command: keydb-server --port 0 --tls-port 6379 --tls-cert-file /certs/server.crt --tls-key-file /certs/server.key --tls-ca-cert-file /certs/ca.crt --tls-auth-clients no --appendonly yes
     volumes:
       - keydb_data:/data
+      - ./certs:/certs:ro
     ports:
       - "6379:6379"
     healthcheck:
-      test: ["CMD", "keydb-cli", "ping"]
+      test: ["CMD", "keydb-cli", "--tls", "--cacert", "/certs/ca.crt", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
