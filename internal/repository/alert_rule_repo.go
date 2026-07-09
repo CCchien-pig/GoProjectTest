@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 
-	"github.com/google/uuid"
 	"GoProject/udm/internal/model"
+
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
-// AlertRuleRepository 定義�?alert_rules 資�?表�?資�?存�?介面
+// AlertRuleRepository 定義alert_rules 資料表的資料存取介面
 type AlertRuleRepository interface {
 	Create(ctx context.Context, rule *model.AlertRule) error
 	FindByID(ctx context.Context, id uuid.UUID) (*model.AlertRule, error)

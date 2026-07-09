@@ -47,6 +47,16 @@ func (s *dashboardService) GetOverview(ctx context.Context) (*dto.DashboardOverv
 		AlertCounts: make(map[string]int64),
 	}
 
+	// 全域告警計數：從 KeyDB 讀取（獨立事件驅動，不查 DB）
+	// 每次遙測觸發告警時，IncrAlertCount 已同步維護 alert:count:global:{severity}
+	if s.cache != nil {
+		if counts, err := s.cache.GetGlobalAlertCounts(ctx); err != nil {
+			slog.ErrorContext(ctx, "failed to get global alert counts from cache", "error", err)
+		} else {
+			overview.AlertCounts = counts
+		}
+	}
+
 	// 使用 Pipeline 一次從 KeyDB 取得在線數 + 設備總數 (Finding #1 完整實作)
 	if s.cache != nil {
 		onlineCount, total, err := s.cache.GetDashboardMetricsPipeline(ctx)
@@ -86,5 +96,3 @@ func (s *dashboardService) GetOverview(ctx context.Context) (*dto.DashboardOverv
 
 	return overview, nil
 }
-
-

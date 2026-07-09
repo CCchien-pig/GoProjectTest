@@ -12,13 +12,14 @@ import (
 )
 
 type mockCacheService struct {
-	mu             sync.Mutex
-	store          map[string][]byte
-	deviceNulls    map[string]bool
-	latestTelStore map[string][]byte
-	listStore      map[string][]byte
-	onlineStore    map[string]bool
-	alertCounts    map[string]map[string]int64
+	mu               sync.Mutex
+	store            map[string][]byte
+	deviceNulls      map[string]bool
+	latestTelStore   map[string][]byte
+	listStore        map[string][]byte
+	onlineStore      map[string]bool
+	alertCounts      map[string]map[string]int64
+	globalAlertCounts map[string]int64
 
 	GetDeviceCalls int
 	SetDeviceCalls int
@@ -27,12 +28,13 @@ type mockCacheService struct {
 
 func newMockCacheService() *mockCacheService {
 	return &mockCacheService{
-		store:          make(map[string][]byte),
-		deviceNulls:    make(map[string]bool),
-		latestTelStore: make(map[string][]byte),
-		listStore:      make(map[string][]byte),
-		onlineStore:    make(map[string]bool),
-		alertCounts:    make(map[string]map[string]int64),
+		store:             make(map[string][]byte),
+		deviceNulls:       make(map[string]bool),
+		latestTelStore:    make(map[string][]byte),
+		listStore:         make(map[string][]byte),
+		onlineStore:       make(map[string]bool),
+		alertCounts:       make(map[string]map[string]int64),
+		globalAlertCounts: make(map[string]int64),
 	}
 }
 
@@ -109,6 +111,8 @@ func (m *mockCacheService) IncrAlertCount(ctx context.Context, deviceID string, 
 		m.alertCounts[deviceID] = make(map[string]int64)
 	}
 	m.alertCounts[deviceID][severity]++
+	// 同步遞增全域計數（模擬 production 行為）
+	m.globalAlertCounts[severity]++
 	return nil
 }
 
@@ -116,6 +120,17 @@ func (m *mockCacheService) GetAlertCounts(ctx context.Context, deviceID string) 
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.alertCounts[deviceID], nil
+}
+
+func (m *mockCacheService) GetGlobalAlertCounts(ctx context.Context) (map[string]int64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// 回傳副本避免 data race
+	result := make(map[string]int64)
+	for k, v := range m.globalAlertCounts {
+		result[k] = v
+	}
+	return result, nil
 }
 
 func (m *mockCacheService) SyncAlertCount(ctx context.Context, deviceID string, severity string, count int64) error {

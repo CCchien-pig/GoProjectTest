@@ -255,3 +255,23 @@
 - **修正 PostgreSQL 容錯邏輯**：PostgreSQL 為核心資料庫不可降級，將離線警告改為 `log.Fatalf` 立即中止，避免引發後續層級的 Panic。
 - **ScyllaDB 架構升級**：為支援 ScyllaDB 6.0 的 Tablet Replication 新特性，將 `docker-compose.dev.yml` 及 `client.go` 的 Keyspace 策略由 `SimpleStrategy` 全面升級為符合生產環境標準的 `NetworkTopologyStrategy`。
 - **環境自動化驗證**：引導並使用 `winget` 安裝 Windows `make` 工具，成功背景啟動 `docker compose` 與 `go run ./cmd/api/`，驗證三個資料庫 (PostgreSQL, ScyllaDB, KeyDB) 全數完美連線。
+
+---
+
+## 十三、Week 3 & 4 實作里程碑與 Code Review 修正 (2026/07/08)
+
+完成了 Week 3 與 Week 4 計畫的所有內容，主要聚焦於 KeyDB 進階快取機制、分散式事務 (Saga Pattern)、RBAC 權限控管與系統壓力測試，並通過了嚴格的 Code Review。
+
+### 1. KeyDB 進階快取與高併發優化 (Week 3)
+- **多維度快取策略**：實作了 Device Cache-Aside (5m)、Telemetry Write-Through (30s) 以及 Alert Counts 獨立快取 (10m)。
+- **Dashboard 雙層快取架構**：放棄原定的 Ticker 背景輪詢，全面改用「懶加載 (Lazy-Loading) + TTL」策略，大幅降低系統 Idle Overhead。
+- **O(1) 在線狀態統計**：將原本 O(N) 的 `SCAN` 改為透過 KeyDB Set 維護心跳，並用 `SCard` 以 O(1) 複雜度取得在線設備數。
+- **Redis Pipeline 實作**：在 `dashboard_service.go` 中實作 Pipeline，一次網路往返 (Roundtrip) 即可取得多個指標數據。
+
+### 2. Saga Pattern 與 RBAC 權限控管 (Week 4)
+- **Saga 分散式事務**：在設備刪除流程中實作 Saga Pattern。先刪除 PostgreSQL 資料，若後續 KeyDB 快取清除失敗，則回傳 HTTP 207 Multi-Status (ErrCacheCleanupFailed) 警示。
+- **RBAC 管理員驗證**：為 `/cache/invalidate` 端點加上 `role == "admin"` 的權限守衛，防止未授權使用者引發 Cache Avalanche。
+
+### 3. 壓力測試與 Code Review 修正
+- **壓力測試防護**：修正了 `stress_test.go` 中全域 `rand` 的 Mutex 鎖競爭問題 (改用 thread-local rand)，並加入 P95/P99 百分位數的安全邊界檢查。
+- **Code Review 13 項修正**：完成了包含效能優化、錯誤處理 (Saga 錯誤吞併修正)、DTO 分層 (DashboardOverview) 以及 API 回應格式統一 (`response.OK`) 等 13 項嚴格的 Code Review 指標。

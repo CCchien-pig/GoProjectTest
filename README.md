@@ -128,6 +128,10 @@ graph TD
 | | `GET` | `/api/v1/devices/:id` | 取得設備詳情 | Cache-Aside (5 min) + Telemetry Cache |
 | | `PUT` | `/api/v1/devices/:id` | 更新設備 | Invalidate Device & List Cache |
 | | `DELETE`| `/api/v1/devices/:id` | 刪除設備 (Saga 一致性事務) | PostgreSQL Cascade + KeyDB InvalidateAll |
+| **告警規則** | `POST` | `/api/v1/devices/:id/alert-rules` | 新增告警規則 | PostgreSQL |
+| | `GET` | `/api/v1/devices/:id/alert-rules` | 取得指定設備所有告警規則 | PostgreSQL |
+| | `PUT` | `/api/v1/alert-rules/:id` | 更新告警規則 | PostgreSQL |
+| | `DELETE`| `/api/v1/alert-rules/:id` | 刪除告警規則 | PostgreSQL |
 | **即時狀態** | `GET` | `/api/v1/devices/:id/status` | 取得設備在線狀態、最新遙測與告警計數 | KeyDB Pipeline 讀取 |
 | **儀表板** | `GET` | `/api/v1/dashboard/overview` | 取得系統摘要 (總數/在線數/告警數) | KeyDB Pipeline (30s cache) |
 | **快取管理** | `POST` | `/api/v1/cache/invalidate` | 管理員手動清除匹配 Key Pattern 的快取 | KeyDB Scan & Delete |
@@ -137,6 +141,7 @@ graph TD
 | | `DELETE`| `/api/v1/devices/:id/telemetry` | 刪除範圍內時序數據 | ScyllaDB |
 | **告警事件** | `GET` | `/api/v1/devices/:id/alert-events`| 查詢告警事件 (支援 severity 篩選) | ScyllaDB |
 | | `PUT` | `/api/v1/alert-events/:device_id/:month/:triggered_at/:rule_id/ack` | 確認告警 | ScyllaDB |
+| | `(內部自動)` | `(免手動呼叫)` | 遙測數據上報時，自動比對 Alert Rules 閥值並寫入事件 | ScyllaDB + KeyDB Alert Count |
 
 ---
 

@@ -54,6 +54,7 @@ type Service interface {
 	// 告警計數
 	IncrAlertCount(ctx context.Context, deviceID string, severity string) error
 	GetAlertCounts(ctx context.Context, deviceID string) (map[string]int64, error)
+	GetGlobalAlertCounts(ctx context.Context) (map[string]int64, error)
 	SyncAlertCount(ctx context.Context, deviceID string, severity string, count int64) error
 
 	// 設備列表快取
@@ -149,10 +150,16 @@ func (c *redisCache) GetLatestTelemetry(ctx context.Context, deviceID string) ([
 // ── 告警計數 ────────────────────────────────────────────────
 
 func (c *redisCache) IncrAlertCount(ctx context.Context, deviceID string, severity string) error {
-	key := fmt.Sprintf("%s%s:%s", keyAlertCount, deviceID, severity)
+	deviceKey := fmt.Sprintf("%s%s:%s", keyAlertCount, deviceID, severity)
+	globalKey := fmt.Sprintf("%sglobal:%s", keyAlertCount, severity)
+
 	pipe := c.client.Pipeline()
-	pipe.Incr(ctx, key)
-	pipe.Expire(ctx, key, AlertCountTTL)
+	// 遞增單一設備計數 (供 /status API 使用)
+	pipe.Incr(ctx, deviceKey)
+	pipe.Expire(ctx, deviceKey, AlertCountTTL)
+	// 同時遞增全域計數 (供 Dashboard API 使用，不分設備)
+	pipe.Incr(ctx, globalKey)
+	pipe.Expire(ctx, globalKey, AlertCountTTL)
 	_, err := pipe.Exec(ctx)
 	return err
 }
@@ -164,6 +171,33 @@ func (c *redisCache) GetAlertCounts(ctx context.Context, deviceID string) (map[s
 	keys := make([]string, len(severities))
 	for i, sev := range severities {
 		keys[i] = fmt.Sprintf("%s%s:%s", keyAlertCount, deviceID, sev)
+	}
+
+	results, err := c.client.MGet(ctx, keys...).Result()
+	if err != nil {
+		return nil, err
+	}
+
+	for i, sev := range severities {
+		if results[i] != nil {
+			if v, ok := results[i].(string); ok {
+				var n int64
+				_, _ = fmt.Sscanf(v, "%d", &n)
+				counts[sev] = n
+			}
+		}
+	}
+	return counts, nil
+}
+
+// GetGlobalAlertCounts 取得全系統（不分設備）各嚴重等級的告警總數，供 Dashboard 使用
+func (c *redisCache) GetGlobalAlertCounts(ctx context.Context) (map[string]int64, error) {
+	counts := make(map[string]int64)
+	severities := []string{"info", "warning", "critical"}
+
+	keys := make([]string, len(severities))
+	for i, sev := range severities {
+		keys[i] = fmt.Sprintf("%sglobal:%s", keyAlertCount, sev)
 	}
 
 	results, err := c.client.MGet(ctx, keys...).Result()
@@ -254,7 +288,7 @@ func (c *redisCache) GetDashboardMetricsPipeline(ctx context.Context) (int64, in
 	}
 
 	onlineCount := onlineCmd.Val()
-	
+
 	// totalCount 可能是 nil
 	var totalCount int64
 	if totalStr := totalCmd.Val(); totalStr != "" {

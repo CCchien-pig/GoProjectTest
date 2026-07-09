@@ -292,4 +292,49 @@ Consumer（訊息接收方）
 
 ---
 
+### [2026/07/08] — Dashboard 快取架構重構 (Ticker vs Lazy-Loading)
+
+**關鍵字 / Prompt**：
+> "Dashboard cache strategy goroutine ticker background sync vs lazy loading TTL, idle overhead, cache miss"
+
+**獲得的關鍵洞見**：
+- 背景 Ticker 雖然能保證快取永遠是熱的 (Hot Cache)，但如果系統半夜無人訪問，Ticker 仍會不斷消耗 CPU 與 DB 資源 (Idle Overhead)。
+- 懶加載 (Lazy-Loading) 配合短 TTL (如 30 秒) 能在「資料即時性」與「DB 降壓」間取得平衡。
+- 對於高併發下的 Cache Stampede，可在實作上加上 Redis Pipeline 來最佳化回源查詢。
+
+**後續驗證**：
+- 捨棄原先 Implementation Plan 的 Ticker 方案，實作 Lazy-Load 架構，並在 `README.md` 中詳細記錄架構演進的 SA 決策。
+
+---
+
+### [2026/07/08] — 分散式事務的防禦機制 (Saga Pattern)
+
+**關鍵字 / Prompt**：
+> "Distributed systems saga pattern, postgresql delete and redis cache invalidate consistency, HTTP 207 Multi-Status"
+
+**獲得的關鍵洞見**：
+- 刪除設備時，如果 PostgreSQL 刪除了，但 KeyDB 快取清除失敗（例如網路瞬斷），會導致嚴重的不一致（幽靈快取）。
+- Saga Pattern：將分散式操作視為一系列本地事務。若某個後續步驟失敗，需執行補償動作或警示。
+- 若 PostgreSQL 刪除成功但快取刪除失敗，不應回傳 500（因為主資料已刪除），應回傳 207 Partial Success 提醒呼叫端。
+
+**後續驗證**：
+- 在 `device_service.go` 中加入 `ErrCacheCleanupFailed` 判斷，確保 API 能在錯誤時反映快取清除失敗的狀態。
+
+---
+
+### [2026/07/08] — 高併發壓測陷阱 (Global Rand Mutex Contention)
+
+**關鍵字 / Prompt**：
+> "Golang stress test performance bottleneck, math/rand global source mutex contention goroutine safe"
+
+**獲得的關鍵洞見**：
+- Go 的 `math/rand` 全域函數 (`rand.Intn` 等) 為了執行緒安全，內部共用了一把 Mutex 鎖。
+- 在高併發（Concurrency）的壓力測試中，多個 Goroutine 同時呼叫全域 `rand` 會引發嚴重的鎖競爭 (Lock Contention)，導致測試出來的 QPS 不是伺服器的瓶頸，而是壓測腳本本身的瓶頸。
+- 解決方案：每個 Goroutine 初始化自己的 `rand.New(rand.NewSource(...))`。
+
+**後續驗證**：
+- 修正 `stress_test.go`，將 `rand` 實例改為 Thread-local，確保壓測腳本本身具備無鎖的高吞吐量。
+
+---
+
 *此文件持續更新，每次使用 AI 解決重要技術問題後，於當日補充一筆紀錄。*
