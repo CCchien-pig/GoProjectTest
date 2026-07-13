@@ -1,0 +1,644 @@
+{
+  "info": {
+    "_postman_id": "5ed478fd-b401-4d8f-8986-e265270e9e52",
+    "name": "USCII IoT Platform API",
+    "description": "物聯網設備管理與遙測平台 API。包含 PostgreSQL 關聯資料 CRUD、ScyllaDB 時序數據吞吐、以及 KeyDB 雙層快取機制。",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "48163249",
+    "_collection_link": "https://go.postman.co/collection/48163249-5ed478fd-b401-4d8f-8986-e265270e9e52?source=collection_link"
+  },
+  "item": [
+    {
+      "name": "1. 健康檢查",
+      "item": [
+        {
+          "name": "系統健康檢查 (Health Check)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            },
+            "description": "檢查系統與三大 DB (PostgreSQL, KeyDB, ScyllaDB) 連線狀態"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "2. 使用者管理",
+      "item": [
+        {
+          "name": "建立使用者",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin_user\",\n  \"email\": \"admin@uscii.com\",\n  \"password\": \"secure_password_123\",\n  \"role_id\": \"uuid-role-here\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "取得使用者資訊",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "更新使用者資訊",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"admin_updated\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "軟刪除使用者",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/{{user_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "users",
+                "{{user_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "3. 設備管理",
+      "item": [
+        {
+          "name": "建立設備",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"device_code\": \"SN-2026-001\",\n  \"name\": \"1號廠房溫度計\",\n  \"device_type\": \"sensor\",\n  \"location\": \"Factory-A\",\n  \"metadata\": {\"firmware\": \"v1.2.0\"}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "設備清單 (分頁/過濾)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "取得設備詳情",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "更新設備",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"1號廠房主溫度計\",\n  \"status\": \"maintenance\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "刪除設備",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "4. 告警規則",
+      "item": [
+        {
+          "name": "新增告警規則",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"metric_name\": \"temperature\",\n  \"operator\": \">\",\n  \"threshold\": 45.5,\n  \"severity\": \"critical\",\n  \"is_enabled\": true\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}/alert-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}",
+                "alert-rules"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "取得設備告警規則",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}/alert-rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}",
+                "alert-rules"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "更新告警規則",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"threshold\": 50.0,\n  \"is_enabled\": false\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alert-rules/{{rule_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alert-rules",
+                "{{rule_id}}"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "刪除告警規則",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alert-rules/{{rule_id}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alert-rules",
+                "{{rule_id}}"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "5. 即時狀態 & 儀表板",
+      "item": [
+        {
+          "name": "取得設備即時狀態",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}",
+                "status"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "取得系統儀表板摘要",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/dashboard/overview",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "dashboard",
+                "overview"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "6. 快取管理",
+      "item": [
+        {
+          "name": "手動清除匹配 Key Pattern 快取",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pattern\": \"dashboard:*\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/cache/invalidate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "cache",
+                "invalidate"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "7. 時序遙測",
+      "item": [
+        {
+          "name": "批量寫入遙測數據",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"points\": [\n    {\n      \"recorded_at\": \"2026-07-09T13:00:00Z\",\n      \"metric_name\": \"temperature\",\n      \"value\": 36.5,\n      \"unit\": \"C\"\n    },\n    {\n      \"recorded_at\": \"2026-07-09T13:00:00Z\",\n      \"metric_name\": \"humidity\",\n      \"value\": 55.0,\n      \"unit\": \"%\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}/telemetry",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}",
+                "telemetry"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "查詢時序遙測 (跨日範圍)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}/telemetry?start=2026-07-01T00:00:00Z&end=2026-07-09T23:59:59Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}",
+                "telemetry"
+              ],
+              "query": [
+                {
+                  "key": "start",
+                  "value": "2026-07-01T00:00:00Z"
+                },
+                {
+                  "key": "end",
+                  "value": "2026-07-09T23:59:59Z"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "查詢最新遙測快取",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}/telemetry/latest",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}",
+                "telemetry",
+                "latest"
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "刪除範圍內時序數據",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}/telemetry?start=2026-07-01T00:00:00Z&end=2026-07-09T23:59:59Z",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}",
+                "telemetry"
+              ],
+              "query": [
+                {
+                  "key": "start",
+                  "value": "2026-07-01T00:00:00Z"
+                },
+                {
+                  "key": "end",
+                  "value": "2026-07-09T23:59:59Z"
+                }
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "8. 告警事件",
+      "item": [
+        {
+          "name": "查詢告警事件",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/devices/{{device_id}}/alert-events?severity=critical",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "devices",
+                "{{device_id}}",
+                "alert-events"
+              ],
+              "query": [
+                {
+                  "key": "severity",
+                  "value": "critical"
+                }
+              ]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "確認 (ACK) 告警",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/alert-events/{{device_id}}/{{month}}/{{triggered_at}}/{{rule_id}}/ack",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "alert-events",
+                "{{device_id}}",
+                "{{month}}",
+                "{{triggered_at}}",
+                "{{rule_id}}",
+                "ack"
+              ]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "user_id",
+      "value": "uuid-here"
+    },
+    {
+      "key": "device_id",
+      "value": "uuid-here"
+    },
+    {
+      "key": "rule_id",
+      "value": "uuid-here"
+    },
+    {
+      "key": "month",
+      "value": "2026-07"
+    },
+    {
+      "key": "triggered_at",
+      "value": "2026-07-09T12:00:00Z"
+    }
+  ]
+}
