@@ -28,14 +28,14 @@ func NewAlertEventRepository(client *Client) AlertEventRepository {
 
 func (r *scyllaAlertEventRepository) Insert(ctx context.Context, event *model.AlertEvent) error {
 	query := `INSERT INTO alert_events (device_id, month, triggered_at, rule_id, metric_name, metric_value, threshold, severity, acknowledged) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-	return r.client.Session.Query(query, event.DeviceID, event.Month, event.TriggeredAt, event.RuleID, event.MetricName, event.MetricValue, event.Threshold, event.Severity, event.Acknowledged).WithContext(ctx).Exec()
+	return r.client.Session.Query(query, event.DeviceID.String(), event.Month, event.TriggeredAt, event.RuleID.String(), event.MetricName, event.MetricValue, event.Threshold, event.Severity, event.Acknowledged).WithContext(ctx).Exec()
 }
 
 func (r *scyllaAlertEventRepository) QueryByDevice(ctx context.Context, deviceID uuid.UUID, month string, severity string) ([]*model.AlertEvent, error) {
 	var result []*model.AlertEvent
 
 	query := `SELECT device_id, month, triggered_at, rule_id, metric_name, metric_value, threshold, severity, acknowledged FROM alert_events WHERE device_id = ? AND month = ?`
-	iter := r.client.Session.Query(query, deviceID, month).WithContext(ctx).Iter()
+	iter := r.client.Session.Query(query, deviceID.String(), month).WithContext(ctx).Iter()
 
 	var devID gocql.UUID
 	var mth string
@@ -73,5 +73,5 @@ func (r *scyllaAlertEventRepository) QueryByDevice(ctx context.Context, deviceID
 
 func (r *scyllaAlertEventRepository) Acknowledge(ctx context.Context, deviceID uuid.UUID, month string, triggeredAt time.Time, ruleID uuid.UUID) error {
 	query := `UPDATE alert_events SET acknowledged = true WHERE device_id = ? AND month = ? AND triggered_at = ? AND rule_id = ?`
-	return r.client.Session.Query(query, deviceID, month, triggeredAt, ruleID).WithContext(ctx).Exec()
+	return r.client.Session.Query(query, deviceID.String(), month, triggeredAt, ruleID.String()).WithContext(ctx).Exec()
 }

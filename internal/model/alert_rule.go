@@ -20,7 +20,7 @@ type AlertRule struct {
 	UpdatedAt  time.Time `gorm:"type:timestamptz;not null;default:now()" json:"updated_at"`
 
 	// 關聯
-	Device *Device `gorm:"foreignKey:DeviceID" json:"device,omitempty"`
+	Device *Device `gorm:"foreignKey:DeviceID;constraint:OnDelete:CASCADE;" json:"device,omitempty"`
 }
 
 // TableName 指定資料表名稱

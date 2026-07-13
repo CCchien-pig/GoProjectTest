@@ -46,7 +46,7 @@ func (r *scyllaTelemetryRepository) BatchInsert(ctx context.Context, deviceID uu
 		for _, p := range batchPoints {
 			dateStr := p.RecordedAt.Format("2006-01-02")
 			query := `INSERT INTO telemetry (device_id, date, recorded_at, metric_name, value, unit, tags) VALUES (?, ?, ?, ?, ?, ?, ?)`
-			batch.Query(query, deviceID, dateStr, p.RecordedAt, p.MetricName, p.Value, p.Unit, p.Tags)
+			batch.Query(query, deviceID.String(), dateStr, p.RecordedAt, p.MetricName, p.Value, p.Unit, p.Tags)
 		}
 
 		if err := r.client.Session.ExecuteBatch(batch); err != nil {
@@ -66,7 +66,7 @@ func (r *scyllaTelemetryRepository) Query(ctx context.Context, deviceID uuid.UUI
 	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
 		dateStr := d.Format("2006-01-02")
 		queryStr := `SELECT device_id, date, recorded_at, metric_name, value, unit, tags FROM telemetry WHERE device_id = ? AND date = ? AND recorded_at >= ? AND recorded_at <= ?`
-		iter := r.client.Session.Query(queryStr, deviceID, dateStr, start, end).WithContext(ctx).Iter()
+		iter := r.client.Session.Query(queryStr, deviceID.String(), dateStr, start, end).WithContext(ctx).Iter()
 
 		var devID gocql.UUID
 		var date string
@@ -115,7 +115,7 @@ func (r *scyllaTelemetryRepository) QueryLatest(ctx context.Context, deviceID uu
 
 	for _, dateStr := range daysToQuery {
 		queryStr := `SELECT device_id, date, recorded_at, metric_name, value, unit, tags FROM telemetry WHERE device_id = ? AND date = ? LIMIT 100`
-		iter := r.client.Session.Query(queryStr, deviceID, dateStr).WithContext(ctx).Iter()
+		iter := r.client.Session.Query(queryStr, deviceID.String(), dateStr).WithContext(ctx).Iter()
 
 		var devID gocql.UUID
 		var date string
@@ -155,7 +155,7 @@ func (r *scyllaTelemetryRepository) DeleteByRange(ctx context.Context, deviceID 
 	for d := startDate; !d.After(endDate); d = d.AddDate(0, 0, 1) {
 		dateStr := d.Format("2006-01-02")
 		queryStr := `DELETE FROM telemetry WHERE device_id = ? AND date = ? AND recorded_at >= ? AND recorded_at <= ?`
-		err := r.client.Session.Query(queryStr, deviceID, dateStr, start, end).WithContext(ctx).Exec()
+		err := r.client.Session.Query(queryStr, deviceID.String(), dateStr, start, end).WithContext(ctx).Exec()
 		if err != nil {
 			return fmt.Errorf("delete range for date %s: %w", dateStr, err)
 		}

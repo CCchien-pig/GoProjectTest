@@ -156,6 +156,12 @@ func main() {
 		scyllaClient.Close()
 		slog.Info("ScyllaDB connection closed")
 	}
+	if db != nil {
+		if sqlDB, err := db.DB(); err == nil {
+			sqlDB.Close()
+			slog.Info("PostgreSQL connection closed")
+		}
+	}
 
 	slog.Info("UDM API Server gracefully stopped")
 }
