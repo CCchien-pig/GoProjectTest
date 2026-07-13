@@ -11,6 +11,7 @@
 UDM 平台採取了 **多資料庫異構架構** (Polyglot Persistence)，確保每一種資料都存放在最合適其讀寫特性的儲存引擎中。
 
 ### 1.1 系統架構圖 (Mermaid)
+
 ```mermaid
 graph TD
     Client[Client / Postman] -->|HTTP REST API| GoServer[Go Gin API Server]
@@ -38,15 +39,15 @@ graph TD
 
 架構師最關心的是 **「Why (為什麼)」**。您必須清楚說出每項選型背後的取捨邏輯。
 
-### 2.1 儲存時序數據：為什麼選 ScyllaDB，而不是 PostgreSQL (TimescaleDB) 或 InfluxDB？
+### 2.1 儲存時序數據：為什麼選 ScyllaDB，而不是 PostgreSQL (TimescaleDB)？
 
-| 比較維度 | ScyllaDB (本專案選擇) | PostgreSQL + TimescaleDB | InfluxDB |
-| :--- | :--- | :--- | :--- |
-| **架構類型** | 分散式、無主節點 (Peer-to-Peer) | 單機關聯式 + 時序分區插件 | 專用時序資料庫 |
-| **寫入吞吐量** | **極高** (LSM-Tree 結構，線性擴展) | 中等 (受限於單機 B-Tree 與行鎖) | 高 |
-| **高可用性** | **極佳** (多 Replica，無單點故障) | 較差 (依賴 Primary-Replica 切換) | 社群版不支援叢集高可用 |
-| **複雜查詢/JOIN** | ❌ 不支援 (需由應用層處理) |  支援完整 SQL 與 JOIN | ❌ 不支援 (需使用 Flux/InfluxQL) |
-| **硬體資源開銷** | 較高 (至少需要 3 節點起步) | 低 | 低 |
+| 比較維度 | ScyllaDB (本專案選擇) | PostgreSQL + TimescaleDB |
+| :--- | :--- | :--- |
+| **架構類型** | 分散式、無主節點 (Peer-to-Peer) | 單機關聯式 + 時序分區插件 |
+| **寫入吞吐量** | **極高** (LSM-Tree 結構，線性擴展) | 中等 (受限於單機 B-Tree 與行鎖) |
+| **高可用性** | **極佳** (多 Replica，無單點故障) | 較差 (依賴 Primary-Replica 切換) |
+| **複雜查詢/JOIN** | ❌ 不支援 (需由應用層處理) |  支援完整 SQL 與 JOIN |
+| **硬體資源開銷** | 較高 (至少需要 3 節點起步) | 低 |
 
 * 💡 **架構師追問**：*「PostgreSQL 已經是 Source of Truth，加裝 TimescaleDB 插件也能存時序，為何還要引進 ScyllaDB？」*
   * **答辯要點**：
@@ -141,15 +142,19 @@ graph TD
 ---
 
 ### 3.2 儀表板 (Dashboard) 雙層快取架構與「懶加載」設計
+
 我們捨棄了會造成背景資源浪費的背景輪詢 (Ticker) 方案，改為採用 **「懶加載 (Lazy-Loading) + TTL」的雙層防禦架構**。
 
 #### 第一層：資料源的精準分離 (Data Source Separation)
+
 當儀表板快取 Miss 時，系統會透過以下方式向快取資料源要資料，**完全不碰 PostgreSQL 的大表統計**：
-- 🟢 **在線總數 (Online Total)**：設備寫入遙測時會更新 `device:online:{id}` (3分鐘 TTL)，並同步 `SADD` 寫入 `dashboard:online_set`。要獲取在線數時，直接對該 Set 執行 **`SCard`** 指令，時間複雜度為 **O(1)**，零 DB 負載。
-- 🔵 **設備總數 (Device Total)**：僅在 Cache Miss 時才去 PostgreSQL `SELECT COUNT(*)` 查詢並回寫，TTL 5 分鐘。
-- 🟠 **各級告警總數 (Global Alert Counts)**：在遙測觸發告警規則時，由事件驅動同步 `INCR` 累加 `alert:count:global:{severity}`。
+
+* 🟢 **在線總數 (Online Total)**：設備寫入遙測時會更新 `device:online:{id}` (3分鐘 TTL)，並同步 `SADD` 寫入 `dashboard:online_set`。要獲取在線數時，直接對該 Set 執行 **`SCard`** 指令，時間複雜度為 **O(1)**，零 DB 負載。
+* 🔵 **設備總數 (Device Total)**：僅在 Cache Miss 時才去 PostgreSQL `SELECT COUNT(*)` 查詢並回寫，TTL 5 分鐘。
+* 🟠 **各級告警總數 (Global Alert Counts)**：在遙測觸發告警規則時，由事件驅動同步 `INCR` 累加 `alert:count:global:{severity}`。
 
 #### 第二層：API 響應快取 (API Response Caching)
+
 儀表板 API 請求會優先被 `dashboard:overview` (30 秒 TTL) 攔截。在 30 秒內，不論有多少並發流量打進來，系統都只會直接回傳 KeyDB 內的整包 JSON，將回源率壓到最低。
 
 ---
@@ -159,37 +164,50 @@ graph TD
 ### 4.1 PostgreSQL 高階查詢優化
 
 #### Keyset Pagination (Cursor-based) 分頁
+
 在設備列表查詢中，我們捨棄了傳統的 `LIMIT Y OFFSET X`，改用基於 `(created_at, id)` 的 Cursor 分頁：
-- **為什麼？** `OFFSET 1000000` 會逼資料庫先掃描並丟棄前 100 萬筆資料，時間複雜度是 **O(N)**，隨頁數增加效能會崩潰。
-- **作法**：我們記錄上一頁最後一筆資料的 `created_at` 與 `id`，下一次查詢時直接使用 `WHERE (created_at < ? OR (created_at = ? AND id < ?))` 進行精準定位，時間複雜度永遠保持在 **O(1)**。
+
+* **為什麼？** `OFFSET 1000000` 會逼資料庫先掃描並丟棄前 100 萬筆資料，時間複雜度是 **O(N)**，隨頁數增加效能會崩潰。
+* **作法**：我們記錄上一頁最後一筆資料的 `created_at` 與 `id`，下一次查詢時直接使用 `WHERE (created_at < ? OR (created_at = ? AND id < ?))` 進行精準定位，時間複雜度永遠保持在 **O(1)**。
 
 #### `pg_trgm` GIN 模糊搜尋
+
 在設備代碼與名稱的模糊查詢中，我們使用了 PostgreSQL 的三元組擴充功能：
+
 ```sql
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE INDEX idx_devices_name_trgm ON devices USING gin (name gin_trgm_ops);
 ```
-- **為什麼？** 傳統的 `LIKE '%abc%'` 在 B-Tree 索引下無法生效，會導致全表掃描 (Full Table Scan)。
-- **作法**：使用 `pg_trgm` 會將字串拆成 3 個字元的片段，並配合 GIN (Generalized Inverted Index) 倒排索引，使得雙向萬用字元模糊搜尋也能在微秒級內命中索引。
+
+* **為什麼？** 傳統的 `LIKE '%abc%'` 在 B-Tree 索引下無法生效，會導致全表掃描 (Full Table Scan)。
+
+* **作法**：使用 `pg_trgm` 會將字串拆成 3 個字元的片段，並配合 GIN (Generalized Inverted Index) 倒排索引，使得雙向萬用字元模糊搜尋也能在微秒級內命中索引。
 
 ---
 
 ### 4.2 ScyllaDB 時序分區與「日桶 (Daily Bucketing)」設計
+
 時序資料的查詢與分區鍵設計直接決定了資料庫的生死。
 
 #### 分區鍵的科學設計：`PRIMARY KEY ((device_id, date), recorded_at, metric_name)`
-- **`Partition Key ((device_id, date))`**：ScyllaDB 會根據分區鍵的雜湊值決定資料要存放在叢集的哪一個節點。如果只用 `device_id`，這台設備一整年的資料都會擠在同一個節點上，造成 **Hot Partition**。
-- **日桶 (Daily Bucketing) 的解法**：我們將 `date`（如 `2026-07-12`）與 `device_id` 組合成複合分區鍵。這樣一來，同一台設備不同天的資料會被均勻分散到不同節點，且單一分區的容量上限被鎖定在「一天份的資料量」（約幾十 KB），完全避開了大分區查詢時記憶體暴增的風險。
+
+* **`Partition Key ((device_id, date))`**：ScyllaDB 會根據分區鍵的雜湊值決定資料要存放在叢集的哪一個節點。如果只用 `device_id`，這台設備一整年的資料都會擠在同一個節點上，造成 **Hot Partition**。
+
+* **日桶 (Daily Bucketing) 的解法**：我們將 `date`（如 `2026-07-12`）與 `device_id` 組合成複合分區鍵。這樣一來，同一台設備不同天的資料會被均勻分散到不同節點，且單一分區的容量上限被鎖定在「一天份的資料量」（約幾十 KB），完全避開了大分區查詢時記憶體暴增的風險。
 
 #### 如何處理跨日查詢？
+
 由於資料被拆分在不同的 Date Partition，若直接下 `WHERE device_id = ? AND recorded_at >= ?` 會觸發全表掃描，ScyllaDB 會直接報錯（Scan Penalty）。
-- **Go 應用層的解決方案**：
+
+* **Go 應用層的解決方案**：
   在 `telemetry_repo.go` 的 `Query` 函數中，我們在應用層先計算出 `start` 到 `end` 之間包含的**所有日期**。例如查詢 3 天的資料，Go 會自動拆分成 3 次並行的單日查詢：
+
   ```cql
   SELECT * FROM telemetry WHERE device_id = ? AND date = '2026-07-01' AND recorded_at >= ?;
   SELECT * FROM telemetry WHERE device_id = ? AND date = '2026-07-02';
   SELECT * FROM telemetry WHERE device_id = ? AND date = '2026-07-03' AND recorded_at <= ?;
   ```
+
   最後在記憶體中將這三個查詢結果合併並排序。這用些微的應用層 CPU 開銷，換取了時序庫在水平擴展上的極致效能。
 
 ---
@@ -197,6 +215,7 @@ CREATE INDEX idx_devices_name_trgm ON devices USING gin (name gin_trgm_ops);
 ## 🛡️ 5. 分散式一致性與系統韌性
 
 ### 5.1 跨資料庫刪除的 Saga 模式與 Partial Success (HTTP 207)
+
 在沒有分散式事務 (XA) 的多資料庫環境下，我們採用了 **Saga Pattern** 的設計思想來處理「刪除設備」這一業務：
 
 ```
@@ -207,12 +226,12 @@ CREATE INDEX idx_devices_name_trgm ON devices USING gin (name gin_trgm_ops);
                                                           5. 記錄異常日誌 (含 request_id)
 ```
 
-- **為什麼要回傳 207 而不是 500？**
-  - 當 PostgreSQL 刪除成功，但因為網路瞬斷導致 KeyDB 快取失效失敗時，如果回傳 500，前端會認為「刪除失敗」。但實際上，PostgreSQL 的主資料已經不見了，這會造成資料狀態嚴重錯亂。
-  - **解決方案**：我們在 `device_service.go` 中執行局部成功邏輯。即使快取刪除失敗，依然回傳代表部分成功的 `207 Multi-Status`。雖然快取暫時是髒的，但因為快取設有 TTL (5分鐘)，資料終究會達到**最終一致性 (Eventual Consistency)**。同時，伺服器會將此異常記錄於 slog（帶有 `request_id`），以便運維端進行補償。
-- **ScyllaDB 的資料保留**：
-  - 設備在 Postgres 中雖然被物理刪除，但 ScyllaDB 內的歷史遙測資料不會被刪除（供稽核用）。
-  - 當用戶查該設備的歷史遙測時，`Query` 會先查 Postgres 發現設備已亡，此時會將回傳結構中的 `is_deleted` 設為 `true`，以供前端展示「此為已刪除設備的歷史資料」。
+* **為什麼要回傳 207 而不是 500？**
+  * 當 PostgreSQL 刪除成功，但因為網路瞬斷導致 KeyDB 快取失效失敗時，如果回傳 500，前端會認為「刪除失敗」。但實際上，PostgreSQL 的主資料已經不見了，這會造成資料狀態嚴重錯亂。
+  * **解決方案**：我們在 `device_service.go` 中執行局部成功邏輯。即使快取刪除失敗，依然回傳代表部分成功的 `207 Multi-Status`。雖然快取暫時是髒的，但因為快取設有 TTL (5分鐘)，資料終究會達到**最終一致性 (Eventual Consistency)**。同時，伺服器會將此異常記錄於 slog（帶有 `request_id`），以便運維端進行補償。
+* **ScyllaDB 的資料保留**：
+  * 設備在 Postgres 中雖然被物理刪除，但 ScyllaDB 內的歷史遙測資料不會被刪除（供稽核用）。
+  * 當用戶查該設備的歷史遙測時，`Query` 會先查 Postgres 發現設備已亡，此時會將回傳結構中的 `is_deleted` 設為 `true`，以供前端展示「此為已刪除設備的歷史資料」。
 
 ---
 
@@ -231,8 +250,10 @@ CREATE INDEX idx_devices_name_trgm ON devices USING gin (name gin_trgm_ops);
 ## 🏎️ 6. 並發防禦與壓測效能優化
 
 ### 6.1 Cache Stampede (快取擊穿) 防護：Singleflight 實作
+
 在高並發場景下，若一個熱點設備的快取剛好過期，大量請求同時 Miss 會瞬間將 PostgreSQL 的連線池打爆。
 我們在 `DeviceService` 中實作了 **`singleflight.Group`**：
+
 ```go
 func (s *deviceService) FindByID(ctx context.Context, id uuid.UUID) (*dto.DeviceResp, error) {
     idStr := id.String()
@@ -248,18 +269,23 @@ func (s *deviceService) FindByID(ctx context.Context, id uuid.UUID) (*dto.Device
     // 3. 回寫快取並回傳...
 }
 ```
+
 透過 `sfGroup.Do`，在同一個時間點，對於同一個 `device_id`，不論有幾千個 Goroutines 穿透，**只有一個**會真正去查 DB，其餘的都在記憶體中掛起等待並共享結果，完美保護了底層 PostgreSQL。
 
 ### 6.2 壓力測試中的鎖競爭陷阱 (Rand Source Lock Contention)
+
 在進行 1000 台設備的混合讀寫壓測時，我們曾遇到一個效能瓶頸：QPS 上不去，CPU 也吃不滿。
-- **原因**：Go 標準庫的 `math/rand` 全域函數（例如 `rand.Intn`）內部使用了一把互斥鎖 (Mutex) 來確保執行緒安全。在幾十個協程 (Goroutines) 瘋狂進行並發測試時，大家都卡在搶這把全域鎖上。
-- **解決方法**：我們將壓測腳本 `stress_test.go` 修改為「為每個 Goroutine 實例化獨立的亂數產生器」：
+
+* **原因**：Go 標準庫的 `math/rand` 全域函數（例如 `rand.Intn`）內部使用了一把互斥鎖 (Mutex) 來確保執行緒安全。在幾十個協程 (Goroutines) 瘋狂進行並發測試時，大家都卡在搶這把全域鎖上。
+* **解決方法**：我們將壓測腳本 `stress_test.go` 修改為「為每個 Goroutine 實例化獨立的亂數產生器」：
+
   ```go
   go func(r *rand.Rand) {
       // 每個協程使用自己專屬的無鎖 rand
       devID := deviceIDs[r.Intn(len(deviceIDs))]
   }(rand.New(rand.NewSource(time.Now().UnixNano() + int64(i))))
   ```
+
   這消除了壓測工具本身的鎖競爭，將系統吞吐量推升到了最真實的 **`160.56 QPS`**。
 
 ---
@@ -288,13 +314,14 @@ func (s *deviceService) FindByID(ctx context.Context, id uuid.UUID) (*dto.Device
 1. **ScyllaDB 資源受限是最大瓶頸**：壓測環境的 ScyllaDB 以 `--smp 1 --memory 512M` 的嚴格限制運行在 Docker 內（僅使用 1 個 CPU 核心、512MB 記憶體）。這是為了避免在本地開發機上把所有資源吃光。在生產叢集（多節點、多核、高記憶體）環境下，ScyllaDB 的寫入吞吐能力可以**線性擴展到數倍乃至數十倍**。
 
 2. **P50 vs P99 的落差說明了快取的威力**：
-   - P50 (81ms) 主要反映了**快取命中**場景（KeyDB 命中 → 微秒回傳）和**普通 DB 查詢**的混合平均。
-   - P95 (341ms) 和 P99 (457ms) 的飆升，主要來自以下兩個原因：
-     - **快取 Miss 後的 Singleflight 排隊**：當 1000 台設備中有設備快取同時過期，後續等待 singleflight 共享結果的 Goroutine 延遲較高。
-     - **ScyllaDB 批次寫入延遲**：30% 的寫入請求需要穿透快取直達 ScyllaDB，在資源受限的本地環境下，批次提交的等待時間會拉高尾部延遲。
+   * P50 (81ms) 主要反映了**快取命中**場景（KeyDB 命中 → 微秒回傳）和**普通 DB 查詢**的混合平均。
+   * P95 (341ms) 和 P99 (457ms) 的飆升，主要來自以下兩個原因：
+     * **快取 Miss 後的 Singleflight 排隊**：當 1000 台設備中有設備快取同時過期，後續等待 singleflight 共享結果的 Goroutine 延遲較高。
+     * **ScyllaDB 批次寫入延遲**：30% 的寫入請求需要穿透快取直達 ScyllaDB，在資源受限的本地環境下，批次提交的等待時間會拉高尾部延遲。
 
-3. **這個結果對應的業務場景**：160 QPS 代表系統在當前單機 Docker 環境下，每秒能穩定處理 160 個 API 請求，且零錯誤。若換算到業務含義：
-   - 若每台設備每 5 秒上報一次心跳，160 QPS 的純寫入能力約可支撐 **800 台同時上報**的設備（160 × 5）。
+3. **這個結果對應的業務場景**：160 QPS 代表系統在當前單機 Docker 環境下，每秒能穩定處理 160 個 API 請求。若換算到業務含義：
+   - 若每台設備每 5 秒上報一次心跳，且**假設上報時間點是均勻分佈的**，160 QPS 的純寫入能力約可平滑支撐 **800 台設備**持續在線（160 req/s × 5s = 800）。
+   - *(備註：如果 800 台設備是在同一個瞬間「突發 (Burst)」上報，則第一秒會湧入 800 個請求。系統會利用作業系統的 TCP 緩衝區與 Go 語言的 Goroutine 排隊處理，花費約 5 秒鐘將這批峰值消化完畢，但這會增加客戶端的等待延遲。)*
    - 在生產環境中解除 ScyllaDB 資源限制，預估可輕鬆達到 **1,000~3,000 QPS** 以上。
 
 #### 識別出的系統瓶頸（由高到低）
@@ -310,10 +337,10 @@ func (s *deviceService) FindByID(ctx context.Context, id uuid.UUID) (*dto.Device
 
 向架構師報告時，必須主動說明測試的邊界條件，這樣才能展現系統思維：
 
-- **單一節點模擬**：壓測是對本地單機 Docker 進行，ScyllaDB 是單節點（非 3 節點生產叢集），無法測試真實的叢集網路延遲與 Replica 同步開銷。
-- **無網路延遲模擬**：所有請求均來自 `localhost`，缺少真實的 WAN 網路延遲（通常 10~100ms）。在生產環境中，客戶端網路延遲會使 P50/P95 數值顯著升高。
-- **固定讀寫比**：本次使用固定 70/30 比，未測試純寫入（0/100）或讀取爆發（100/0）的邊界場景。
-- **熱點設備未模擬**：當前壓測使用 `rand.Intn` 均勻分佈選取設備，未模擬 Zipf 分佈下少數設備被大量訪問的「熱點 (Hot Key)」場景，這在真實 IoT 場景中較常見（例如某台重要設備被多個監控看板同時查詢）。
+* **單一節點模擬**：壓測是對本地單機 Docker 進行，ScyllaDB 是單節點（非 3 節點生產叢集），無法測試真實的叢集網路延遲與 Replica 同步開銷。
+* **無網路延遲模擬**：所有請求均來自 `localhost`，缺少真實的 WAN 網路延遲（通常 10~100ms）。在生產環境中，客戶端網路延遲會使 P50/P95 數值顯著升高。
+* **固定讀寫比**：本次使用固定 70/30 比，未測試純寫入（0/100）或讀取爆發（100/0）的邊界場景。
+* **熱點設備未模擬**：當前壓測使用 `rand.Intn` 均勻分佈選取設備，未模擬 Zipf 分佈下少數設備被大量訪問的「熱點 (Hot Key)」場景，這在真實 IoT 場景中較常見（例如某台重要設備被多個監控看板同時查詢）。
 
 ---
 
@@ -322,15 +349,17 @@ func (s *deviceService) FindByID(ctx context.Context, id uuid.UUID) (*dto.Device
 當您向架構師報告此專案時，請準備好迎接以下追問：
 
 #### 🙋‍♂️ 1.「你用 GORM AutoMigrate 建表，為什麼還要寫 `migrations` 資料夾下的 SQL/CQL 檔案？」
+
 * 💬 **推薦回答**：
   > 「GORM AutoMigrate 是為了我們在開發測試階段能快速疊代程式碼。但在正式生產環境中（Production），讓 ORM 在啟動時自動修改資料表結構是非常危險的。
-  > 
+  >
   > 因此，我們保留了正規的 SQL/CQL 腳本。在未來的 CI/CD 流程中，我們會關閉 AutoMigrate，並使用 `golang-migrate` 這類的工具，以這些 SQL/CQL 腳本為唯一來源，進行嚴格的版本化遷移（Versioned Migration）。」
 
 #### 🙋‍♂️ 2.「你的 ScyllaDB 遙測寫入 API，如果一次塞進 10,000 筆資料，會不會把時序資料庫寫爆？」
+
 * 💬 **推薦回答**：
   > 「不會的。我們在 `telemetry_repo.go` 的 `BatchInsert` 中實作了 **Chunk 分批機制**。
-  > 
+  >
   > 雖然 API 接收全量資料，但我們在 Repository 底層設定了 `maxBatchSize = 100`。程式會自動以 100 筆為一個單位拆分，並以 `gocql.UnloggedBatch` 依序寫入。這樣既保證了傳輸效率，也避免了單個大批次（Big Batch）在 ScyllaDB 協調節點（Coordinator Node）上造成記憶體過載。」
 
 #### 🙋‍♂️ 3.「你的 KeyDB 快取是用 TLS 加密連線的，在高並發下難道不會造成嚴重的 SSL 握手開銷嗎？」
@@ -338,3 +367,10 @@ func (s *deviceService) FindByID(ctx context.Context, id uuid.UUID) (*dto.Device
   > 「確實會，所以我們不能對每一次請求都重新建立 TLS 連線。
   > 
   > 我們的解決方案是利用 `go-redis` 的 **連線池 (Connection Pool)** 機制。在系統初始化時，我們就建立並維持一個經過 TLS 握手的連線池。高並發的讀寫請求會重複使用這些現成的加密 TCP 通道，這將 TLS 握手的 RTT 損耗降到了最低，在壓測中表現非常穩定。」
+
+#### 🙋‍♂️ 4.「既然 Go 語言本身有 TCP 緩衝區和 Goroutine 可以應付突發流量 (Burst)，那我們還需要像 RabbitMQ 或 Kafka 這樣的 Message Queue 做什麼？」
+* 💬 **推薦回答**：
+  > 「這是一個非常關鍵的差異。Go 語言原生網路庫的緩衝機制與專業的 MQ 有三個本質上的不同：
+  > 1. **資料易失性 (Volatility)**：Go 的排隊是發生在『記憶體』中。如果瞬間湧入 1 萬個請求，而伺服器剛好因為 OOM 或斷電崩潰，這 1 萬筆遙測資料就**永遠遺失**了。RabbitMQ 則是將訊息持久化到硬碟 (Disk-backed)，重啟後能繼續處理。
+  > 2. **客戶端阻塞 (Client Blocking)**：當請求在 Go 裡面排隊時，前端 IoT 設備的 HTTP 連線必須一直『掛著等待』回覆（可能要等好幾秒）。如果用 MQ，API 可以第一時間回傳 `202 Accepted` 讓設備去休息，由後端非同步慢慢消化。
+  > 3. **缺乏反壓機制 (Backpressure)**：Go 的 `net/http` 預設是沒有上限的，一萬個併發就會開一萬個 Goroutine，極端情況下會耗盡記憶體 (OOM)。而 MQ 是一個完美的『避震器 (Shock Absorber)』，不管前端流量多大，我們的 Consumer 都可以固定以 160 QPS 的平穩速度去拉取，保護底層的 ScyllaDB 和 PostgreSQL 絕對不會被打死。」
