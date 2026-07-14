@@ -36,6 +36,15 @@ graph TD
 > - **設備詳情快取 (Device Details)**：針對單一設備查詢（如 `FindByID`），系統會將設備基本資料快取 5 分鐘。由於 IoT 設備的 Metadata（名稱、MAC 地址等）極少變動，此機制能攔截 99% 的重複性單筆查詢。
 > - **設備總數聚合快取 (Device Total)**：針對儀表板所需的總數統計（`dashboard:device_total`），採用獨立的 5 分鐘 TTL 快取。系統僅在 Cache Miss 時，才會向 PostgreSQL 觸發 `SELECT COUNT(*)` 查詢，避免頻繁刷新拖垮資料庫效能。
 >
+> #### 深入解析：遙測數據的 Write-Through 快取實踐
+>
+> 針對 IoT 系統中讀寫最頻繁的遙測數據，本專案實踐了 **Telemetry Write-Through (寫入穿透)** 策略：
+>
+> 在高頻場景中，前端監控看板會非常頻繁地呼叫 `/status` API 來獲取設備的「最新狀態」。如果採用傳統的 Cache-Aside 模式（讀取時才去快取找，找不到再查 DB），一旦快取過期，瞬間的讀取併發就會穿透打向 ScyllaDB 造成延遲與負載。
+>
+> 為了保護時序資料庫，系統在寫入端進行了防禦：當設備透過 `BatchInsert` 寫入遙測數據到 ScyllaDB 的當下，程式會主動將「最新一筆」的各項指標打包成 JSON，並以 **30秒 TTL** 覆寫到 KeyDB 中（`telemetry:latest:{id}`）。
+> 如此一來，前端頻繁呼叫 `/status` 時，**永遠可以 O(1) 從 KeyDB 命中並取得最新數據**，ScyllaDB 幾乎承受「零讀取負載」。
+>
 > #### 深入解析：儀表板 (Dashboard) 雙層快取架構
 >
 > 原Implementation Plan 原定規劃，Dashboard 預計由背景 Goroutine (Ticker) 定期去各資料庫撈取資料進行同步。經後來與AI來回探討評估後，考量到背景輪詢在無人訪問系統時會造成嚴重的「無效運算與 DB 負載 (Idle Overhead)」，目前的實作已全面重構為**「懶加載 (Lazy-Loading) + TTL」的雙層快取策略**。
