@@ -171,21 +171,11 @@
 
 ---
 
-## 八、關鍵結論
-
-1. **從 OP 調到 CC 的損失是真實的但不致命**，PresaleCMSServer 的觀摩機會確實可惜，但 USCII + 專題的成長路徑不比留在 OP 差
-2. **USCII 規模小不是扣分項**，面試時「能完整講清楚一個系統怎麼運作」比「待過的系統有多大」重要
-3. **架構師出專題 + review 是最佳學習方式**，比考試、比線上課程都有價值
-4. **這份專題的難度橫跨 Junior 到 Senior**，但有 USCII 參考 + AI 工具 + 一個月時間，可以完成
-5. **扎實完成這份專題學到的，比接需求單寫一年 CRUD 多得多**，因為你在學「為什麼」而不只是「怎麼做」
-
 ---
 
 ## 九、專案實作歷程 (2026/06/26 起)
 
 ### Day 11~14 (6/26~6/29) — 專案起步與基礎設施建置
-
-因原計畫 Day 1~10 尚未動工，進行趕工並確立本地開發架構與資安規範。
 
 **1. 架構決策 (改採 All-in-One 本地 Docker)**
 
@@ -263,15 +253,18 @@
 完成了 Week 3 與 Week 4 計畫的所有內容，主要聚焦於 KeyDB 進階快取機制、分散式事務 (Saga Pattern)、RBAC 權限控管與系統壓力測試，並通過了嚴格的 Code Review。
 
 ### 1. KeyDB 進階快取與高併發優化 (Week 3)
+
 - **多維度快取策略**：實作了 Device Cache-Aside (5m)、Telemetry Write-Through (30s) 以及 Alert Counts 獨立快取 (10m)。
 - **Dashboard 雙層快取架構**：放棄原定的 Ticker 背景輪詢，全面改用「懶加載 (Lazy-Loading) + TTL」策略，大幅降低系統 Idle Overhead。
 - **O(1) 在線狀態統計**：將原本 O(N) 的 `SCAN` 改為透過 KeyDB Set 維護心跳，並用 `SCard` 以 O(1) 複雜度取得在線設備數。
 - **Redis Pipeline 實作**：在 `dashboard_service.go` 中實作 Pipeline，一次網路往返 (Roundtrip) 即可取得多個指標數據。
 
 ### 2. Saga Pattern 與 RBAC 權限控管 (Week 4)
+
 - **Saga 分散式事務**：在設備刪除流程中實作 Saga Pattern。先刪除 PostgreSQL 資料，若後續 KeyDB 快取清除失敗，則回傳 HTTP 207 Multi-Status (ErrCacheCleanupFailed) 警示。
 - **RBAC 管理員驗證**：為 `/cache/invalidate` 端點加上 `role == "admin"` 的權限守衛，防止未授權使用者引發 Cache Avalanche。
 
 ### 3. 壓力測試與 Code Review 修正
+
 - **壓力測試防護**：修正了 `stress_test.go` 中全域 `rand` 的 Mutex 鎖競爭問題 (改用 thread-local rand)，並加入 P95/P99 百分位數的安全邊界檢查。
 - **Code Review 13 項修正**：完成了包含效能優化、錯誤處理 (Saga 錯誤吞併修正)、DTO 分層 (DashboardOverview) 以及 API 回應格式統一 (`response.OK`) 等 13 項嚴格的 Code Review 指標。
